@@ -12,15 +12,15 @@ interface AdminLayoutProps {
 }
 
 const NAV_ITEMS = [
-  { name: "Dashboard",  href: "/admin",         icon: LayoutDashboard, exact: true },
-  { name: "Owners",     href: "/admin/owners",  icon: Building2 },
-  { name: "Users",      href: "/admin/users",   icon: Users },
-  { name: "Payout",     href: "/admin/payout",  icon: Wallet },
-  { name: "Shop",       href: "/admin/shop",    icon: ShoppingBag },
+  { name: "Dashboard", href: "/admin",        icon: LayoutDashboard, exact: true },
+  { name: "Owners",    href: "/admin/owners", icon: Building2 },
+  { name: "Users",     href: "/admin/users",  icon: Users },
+  { name: "Payout",    href: "/admin/payout", icon: Wallet },
+  { name: "Shop",      href: "/admin/shop",   icon: ShoppingBag },
 ];
 
 export function AdminLayout({ children }: AdminLayoutProps) {
-  const [location, navigate] = useLocation();
+  const [location] = useLocation();
   const { logout, user } = useAuth();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -30,7 +30,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       n.exact ? location === n.href : location === n.href || location.startsWith(n.href + "/")
     ) ?? NAV_ITEMS[0];
 
-  // Close on outside click
+  // Close dropdown whenever the route changes
+  useEffect(() => {
+    setOpen(false);
+  }, [location]);
+
+  // Close dropdown on outside click
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
@@ -71,7 +76,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               )}
             >
               <activeItem.icon className="h-4 w-4 flex-shrink-0" />
-              <span className="hidden xs:block">{activeItem.name}</span>
+              <span>{activeItem.name}</span>
               <ChevronDown className={cn("h-3.5 w-3.5 transition-transform text-white/60", open && "rotate-180")} />
             </button>
 
@@ -79,30 +84,30 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               <div className="absolute left-1/2 -translate-x-1/2 top-[calc(100%+8px)] w-52 bg-[#161924] border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden z-50">
                 <div className="p-1.5 space-y-0.5">
                   {NAV_ITEMS.map(item => {
-                    const isActive = item.exact ? location === item.href : location === item.href || location.startsWith(item.href + "/");
+                    const isActive = item.exact
+                      ? location === item.href
+                      : location === item.href || location.startsWith(item.href + "/");
                     return (
-                      <button
-                        key={item.name}
-                        onClick={() => { navigate(item.href); setOpen(false); }}
-                        className={cn(
-                          "flex items-center gap-3 w-full px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all",
+                      <Link key={item.name} href={item.href}>
+                        <div className={cn(
+                          "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer select-none",
                           isActive
                             ? "bg-primary text-white"
                             : "text-white/60 hover:bg-white/[0.06] hover:text-white"
-                        )}
-                      >
-                        <item.icon className="h-4 w-4 flex-shrink-0" />
-                        <span className="flex-1 text-left">{item.name}</span>
-                        {isActive && <Check className="h-3.5 w-3.5 opacity-80" />}
-                      </button>
+                        )}>
+                          <item.icon className="h-4 w-4 flex-shrink-0" />
+                          <span className="flex-1">{item.name}</span>
+                          {isActive && <Check className="h-3.5 w-3.5 opacity-80" />}
+                        </div>
+                      </Link>
                     );
                   })}
                 </div>
                 <div className="border-t border-white/[0.06] p-1.5">
                   <Link href="/">
-                    <button className="flex items-center gap-3 w-full px-3.5 py-2 rounded-xl text-sm font-semibold text-white/40 hover:bg-white/[0.06] hover:text-white transition-all">
+                    <div className="flex items-center gap-3 px-3.5 py-2 rounded-xl text-sm font-semibold text-white/40 hover:bg-white/[0.06] hover:text-white transition-all cursor-pointer">
                       <Home className="h-4 w-4" /> View App
-                    </button>
+                    </div>
                   </Link>
                 </div>
               </div>
@@ -131,7 +136,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
         {/* Active section indicator bar */}
         <div className="h-0.5 bg-white/[0.04]">
-          <div className="h-full bg-primary/60 transition-all duration-300 w-full" />
+          <div className="h-full bg-primary/60 w-full" />
         </div>
       </header>
 
