@@ -48,10 +48,12 @@ router.get("/community/posts/:id", async (req: Request, res: Response) => {
     const post = await Post.findById(req.params.id).populate("userId", "name avatar").lean() as any;
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
     const joins = await PostJoin.find({ postId: req.params.id }).lean();
+    const joinedUserIds = joins.map((j: any) => j.userId);
+    const joinedUserDocs = await User.find({ _id: { $in: joinedUserIds } }).select("name avatar phone email").lean() as any[];
     const msgs = await Message.find({ postId: req.params.id }).sort({ createdAt: 1 }).populate("userId", "name avatar").lean();
     res.json({
       ...postRes(post, post.userId, joins.length),
-      joinedUsers: [],
+      joinedUsers: joinedUserDocs.map((u: any) => ({ id: u._id.toString(), name: u.name, avatar: u.avatar, phone: u.phone, email: u.email })),
       messages: msgs.map((m: any) => ({
         id: m._id.toString(), postId: m.postId?.toString(),
         userId: m.userId?._id?.toString(), userName: m.userId?.name,
