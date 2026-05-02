@@ -1,3 +1,4 @@
+import React, { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -31,6 +32,8 @@ import AdminUsers from "@/pages/admin/users";
 import AdminTurfs from "@/pages/admin/turfs";
 import AdminEvents from "@/pages/admin/events";
 import AdminShop from "@/pages/admin/shop";
+import AdminOwners from "@/pages/admin/owners";
+import AdminBookings from "@/pages/admin/bookings";
 
 import OwnerDashboard from "@/pages/owner";
 import OwnerTurfs from "@/pages/owner/turfs";
@@ -44,16 +47,22 @@ const queryClient = new QueryClient();
 function AdminRoute({ component: Component }: { component: React.ComponentType<any> }) {
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
-  if (isLoading) return <div>Loading...</div>;
-  if (!user || user.role !== "admin") { setLocation("/"); return null; }
+  useEffect(() => {
+    if (!isLoading && (!user || user.role !== "admin")) setLocation("/");
+  }, [user, isLoading]);
+  if (isLoading) return <div className="flex items-center justify-center h-screen bg-[#0f1117]"><div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" /></div>;
+  if (!user || user.role !== "admin") return null;
   return <Component />;
 }
 
 function OwnerRoute({ component: Component }: { component: React.ComponentType<any> }) {
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
-  if (isLoading) return <div>Loading...</div>;
-  if (!user || (user.role !== "turf_owner" && user.role !== "admin")) { setLocation("/"); return null; }
+  useEffect(() => {
+    if (!isLoading && (!user || (user.role !== "turf_owner" && user.role !== "admin"))) setLocation("/");
+  }, [user, isLoading]);
+  if (isLoading) return <div className="flex items-center justify-center h-screen"><div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" /></div>;
+  if (!user || (user.role !== "turf_owner" && user.role !== "admin")) return null;
   return <Component />;
 }
 
@@ -85,6 +94,8 @@ function Router() {
             <Route path="/admin/turfs" component={() => <AdminRoute component={AdminTurfs} />} />
             <Route path="/admin/events" component={() => <AdminRoute component={AdminEvents} />} />
             <Route path="/admin/shop" component={() => <AdminRoute component={AdminShop} />} />
+            <Route path="/admin/owners" component={() => <AdminRoute component={AdminOwners} />} />
+            <Route path="/admin/bookings" component={() => <AdminRoute component={AdminBookings} />} />
             <Route component={NotFound} />
           </Switch>
         </AdminLayout>
