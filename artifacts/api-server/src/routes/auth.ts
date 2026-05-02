@@ -64,4 +64,20 @@ router.get("/auth/me", authenticate, async (req: AuthRequest, res: Response) => 
   }
 });
 
+router.put("/auth/me", authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { name, phone, avatar } = req.body;
+    const update: any = {};
+    if (name && typeof name === "string" && name.trim().length >= 2) update.name = name.trim();
+    if (phone && typeof phone === "string") update.phone = phone.trim();
+    if (avatar && typeof avatar === "string") update.avatar = avatar.trim();
+    const user = await User.findByIdAndUpdate(req.user!.id, { $set: update }, { new: true });
+    if (!user) { res.status(404).json({ error: "User not found" }); return; }
+    res.json(userResponse(user));
+  } catch (err) {
+    req.log?.error(err);
+    res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
 export default router;

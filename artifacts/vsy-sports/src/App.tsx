@@ -24,6 +24,7 @@ import Cart from "@/pages/cart";
 import Checkout from "@/pages/checkout";
 import Orders from "@/pages/orders";
 import Profile from "@/pages/profile";
+import MatchManager from "@/pages/profile/match";
 
 import AdminDashboard from "@/pages/admin";
 import AdminUsers from "@/pages/admin/users";
@@ -108,6 +109,7 @@ function Router() {
             <Route path="/checkout" component={Checkout} />
             <Route path="/orders" component={Orders} />
             <Route path="/profile" component={Profile} />
+            <Route path="/profile/match/:id" component={MatchManager} />
             <Route component={NotFound} />
           </Switch>
         </MainLayout>

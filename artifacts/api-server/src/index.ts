@@ -1,7 +1,7 @@
 import { createServer } from "http";
 import app from "./app";
 import { logger } from "./lib/logger";
-import { setupWebSocket } from "./lib/live-scores";
+import { setupWebSocket, loadMatchesFromDB, purgeOldMatches } from "./lib/live-scores";
 import { cancelExpiredBookings } from "./routes/bookings";
 import { connectDB } from "@workspace/db";
 
@@ -22,9 +22,14 @@ connectDB()
     const server = createServer(app);
     setupWebSocket(server);
 
-    // Cancel expired pending bookings on startup and every 60 seconds
+    // Load persisted matches and cancel expired bookings on startup
+    loadMatchesFromDB().catch(() => {});
     cancelExpiredBookings().catch(() => {});
+
+    // Every 60s: cancel expired bookings
     setInterval(() => cancelExpiredBookings().catch(() => {}), 60_000);
+    // Every hour: purge matches older than 7 days
+    setInterval(() => purgeOldMatches().catch(() => {}), 60 * 60_000);
 
     server.listen(port, () => {
       logger.info({ port }, "Server listening");

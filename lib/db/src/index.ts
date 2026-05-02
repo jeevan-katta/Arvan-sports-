@@ -11,3 +11,5 @@ export { Product, CartItem, Order } from "./models/Shop";
 export type { IProduct, ICartItem, IOrder } from "./models/Shop";
 export { Post, PostJoin, Message } from "./models/Community";
 export type { IPost, IPostJoin, IMessage } from "./models/Community";
+export { Match } from "./models/Match";
+export type { IMatch, IMatchPlayer, IMatchBowler } from "./models/Match";
