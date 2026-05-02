@@ -17,7 +17,7 @@ const CATEGORIES = ["All", "Bats", "Balls", "Helmets", "Gloves", "Pads", "Bags",
 export default function Shop() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
-  const [addingId, setAddingId] = useState<number | null>(null);
+  const [addingId, setAddingId] = useState<string | null>(null);
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
@@ -28,7 +28,7 @@ export default function Shop() {
     category: category !== "All" ? category : undefined
   });
 
-  const handleQuickAdd = async (e: React.MouseEvent, productId: number, productName: string) => {
+  const handleQuickAdd = async (e: React.MouseEvent, productId: string, productName: string) => {
     e.preventDefault();
     e.stopPropagation();
     if (!isAuthenticated) {
@@ -154,10 +154,10 @@ export default function Shop() {
                         <Button
                           size="sm"
                           className="w-full h-8 text-xs font-bold rounded-lg"
-                          disabled={addingId === product.id || product.stock === 0}
+                          disabled={addingId === product.id || !product.stock}
                           onClick={(e) => handleQuickAdd(e, product.id, product.name)}
                         >
-                          {product.stock === 0 ? (
+                          {!product.stock ? (
                             "Out of Stock"
                           ) : addingId === product.id ? (
                             "Adding..."

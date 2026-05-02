@@ -46,7 +46,7 @@ export default function BookingDetail() {
   const [liveMatch, setLiveMatch] = useState<any | null>(null);
   const [isAddingBall, setIsAddingBall] = useState(false);
 
-  const { data: booking, isLoading } = useGetBooking(bookingId, { query: { enabled: !!bookingId } });
+  const { data: booking, isLoading } = useGetBooking(bookingId, { query: { queryKey: getGetBookingQueryKey(bookingId), enabled: !!bookingId } });
   const secondsLeft = useCountdown((booking as any)?.expiresAt);
   const createPaymentMutation = useCreateBookingPayment();
   const verifyPaymentMutation = useVerifyBookingPayment();
@@ -54,7 +54,7 @@ export default function BookingDetail() {
   const handlePayment = async () => {
     if (!booking) return;
     try {
-      const paymentOrder = await createPaymentMutation.mutateAsync({ id: bookingId, data: { paymentType } as any });
+      const paymentOrder = await createPaymentMutation.mutateAsync({ id: bookingId });
       const orderId: string = (paymentOrder as any).orderId || "";
 
       // Simulated payment (no real Razorpay keys configured)
@@ -333,8 +333,8 @@ export default function BookingDetail() {
                   : "Not paid yet"}
               </span>
             </div>
-            <Badge variant={booking.paymentStatus === "paid" ? "default" : booking.paymentStatus === "partially_paid" ? "secondary" : "outline"}>
-              {booking.paymentStatus === "paid" ? "Paid" : booking.paymentStatus === "partially_paid" ? "Advance Paid" : "Pending"}
+            <Badge variant={(booking as any).paymentStatus === "paid" ? "default" : (booking as any).paymentStatus === "partially_paid" ? "secondary" : "outline"}>
+              {(booking as any).paymentStatus === "paid" ? "Paid" : (booking as any).paymentStatus === "partially_paid" ? "Advance Paid" : "Pending"}
             </Badge>
           </div>
         </div>

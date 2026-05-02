@@ -13,13 +13,13 @@ export default function Cart() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const { data: cart, isLoading } = useGetCart();
   const removeMutation = useRemoveFromCart();
 
-  const handleRemove = (productId: number) => {
-    removeMutation.mutate({ id: productId }, {
+  const handleRemove = (productId: string) => {
+    removeMutation.mutate({ productId }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
         toast({ description: "Item removed from cart" });
@@ -27,7 +27,7 @@ export default function Cart() {
     });
   };
 
-  const handleUpdateQty = async (productId: number, newQty: number) => {
+  const handleUpdateQty = async (productId: string, newQty: number) => {
     if (newQty < 1) {
       handleRemove(productId);
       return;

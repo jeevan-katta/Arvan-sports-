@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import { format, isToday } from "date-fns";
-import { useGetTurf, useGetTurfSlots, useCreateBooking, getGetTurfSlotsQueryKey } from "@workspace/api-client-react";
+import { useGetTurf, useGetTurfSlots, useCreateBooking, getGetTurfSlotsQueryKey, getGetTurfQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -48,8 +48,8 @@ export default function TurfDetail() {
 
   const dateStr = format(selectedDate, "yyyy-MM-dd");
 
-  const { data: turf, isLoading: isLoadingTurf } = useGetTurf(turfId, { query: { enabled: !!turfId } });
-  const { data: slots, isLoading: isLoadingSlots } = useGetTurfSlots(turfId, { date: dateStr }, { query: { enabled: !!turfId } });
+  const { data: turf, isLoading: isLoadingTurf } = useGetTurf(turfId, { query: { queryKey: getGetTurfQueryKey(turfId), enabled: !!turfId } });
+  const { data: slots, isLoading: isLoadingSlots } = useGetTurfSlots(turfId, { date: dateStr }, { query: { queryKey: getGetTurfSlotsQueryKey(turfId, { date: dateStr }), enabled: !!turfId } });
   const createBooking = useCreateBooking();
 
   useSlotUpdates(turfId, dateStr, (updatedSlotIds) => {

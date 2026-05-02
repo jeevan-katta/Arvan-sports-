@@ -1,6 +1,14 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { User } from "@workspace/api-zod";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  avatar?: string;
+  role?: string;
+}
 
 interface AuthContextType {
   user: User | null;
