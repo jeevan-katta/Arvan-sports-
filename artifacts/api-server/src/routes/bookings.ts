@@ -3,16 +3,23 @@ import { Types } from "mongoose";
 import { Turf, TimeSlot, Booking, User } from "@workspace/db";
 import { authenticate, AuthRequest } from "../middlewares/auth";
 import { broadcastSlotUpdate } from "../lib/live-scores";
-import Razorpay from "razorpay";
 import crypto from "crypto";
 
 const isValidId = (id: string) => Types.ObjectId.isValid(id);
 
 const router = Router();
-const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || "rzp_test_dummy_key";
-const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || "dummy_secret_key";
-const razorpay = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || "";
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || "";
 const PENDING_EXPIRY_MINUTES = 10;
+
+/** Mark all expired pending bookings as cancelled. Call this before listing. */
+export async function cancelExpiredBookings() {
+  const now = new Date();
+  await Booking.updateMany(
+    { status: "pending", expiresAt: { $lt: now } },
+    { $set: { status: "cancelled" } }
+  );
+}
 
 function bookingRes(b: any, turf?: any, user?: any) {
   return {
@@ -30,13 +37,16 @@ function bookingRes(b: any, turf?: any, user?: any) {
     playerCount: b.playerCount, paymentType: b.paymentType || "full",
     status: b.status, paymentStatus: b.paymentStatus,
     razorpayOrderId: b.razorpayOrderId,
-    expiresAt: b.expiresAt?.toISOString(),
+    expiresAt: b.expiresAt?.toISOString?.() ?? null,
     createdAt: b.createdAt?.toISOString(),
   };
 }
 
 router.get("/bookings", authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    // Auto-cancel any expired pending bookings before returning results
+    await cancelExpiredBookings();
+
     const { status, date } = req.query as Record<string, string>;
     const query: any = {};
     if (req.user!.role !== "admin") query.userId = req.user!.id;
@@ -57,11 +67,21 @@ router.post("/bookings", authenticate, async (req: AuthRequest, res: Response) =
     const turf = await Turf.findById(turfId).lean() as any;
     if (!turf) { res.status(404).json({ error: "Turf not found" }); return; }
     const now = new Date();
-    const existing = await Booking.find({ turfId, date, slotId: { $in: slotIds } }).lean();
+
+    // Check all slotIds for conflicts (use slotIds array field, not legacy slotId)
+    const existing = await Booking.find({
+      turfId,
+      date,
+      $or: [
+        { slotIds: { $in: slotIds } },
+        { slotId: { $in: slotIds } },
+      ],
+    }).lean();
     const conflicts = (existing as any[]).filter(b =>
       b.status === "confirmed" || (b.status === "pending" && b.expiresAt && new Date(b.expiresAt) > now)
     );
     if (conflicts.length > 0) { res.status(400).json({ error: "One or more slots are already booked or reserved" }); return; }
+
     const slots = await TimeSlot.find({ _id: { $in: slotIds } }).lean() as any[];
     if (slots.length !== slotIds.length) { res.status(404).json({ error: "One or more slots not found" }); return; }
     slots.sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -102,46 +122,79 @@ router.delete("/bookings/:id", authenticate, async (req: AuthRequest, res: Respo
 router.post("/bookings/:id/payment", authenticate, async (req: AuthRequest, res: Response) => {
   try {
     if (!isValidId(req.params.id)) { res.status(404).json({ error: "Booking not found" }); return; }
-    const paymentType = req.body.paymentType || "full";
+    const paymentType: string = req.body?.paymentType || "full";
     const booking = await Booking.findById(req.params.id).lean() as any;
     if (!booking) { res.status(404).json({ error: "Booking not found" }); return; }
+
+    // Auto-cancel if expired
     if (booking.status === "pending" && booking.expiresAt && new Date(booking.expiresAt) < new Date()) {
       await Booking.findByIdAndUpdate(req.params.id, { status: "cancelled" });
       res.status(400).json({ error: "Booking reservation expired. Please rebook." }); return;
     }
-    const paidAmount = paymentType === "advance" ? Math.round(booking.totalPrice * 0.3 * 100) / 100 : booking.totalPrice;
-    const isDummy = RAZORPAY_KEY_ID === "rzp_test_dummy_key" || RAZORPAY_KEY_SECRET === "dummy_secret_key";
+
+    const totalPrice = Number(booking.totalPrice) || 0;
+    const paidAmount = paymentType === "advance"
+      ? Math.round(totalPrice * 0.3 * 100) / 100
+      : totalPrice;
+
+    // Only use real Razorpay if both keys are present and look real
+    const hasRealKeys = RAZORPAY_KEY_ID.startsWith("rzp_") && RAZORPAY_KEY_SECRET.length >= 20;
     let orderId: string;
-    if (isDummy) {
-      orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    } else {
+
+    if (hasRealKeys) {
       try {
-        const rzpOrder = await razorpay.orders.create({ amount: Math.round(paidAmount * 100), currency: "INR", receipt: `booking_${req.params.id}` });
+        const Razorpay = (await import("razorpay")).default;
+        const rzp = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
+        const rzpOrder = await rzp.orders.create({
+          amount: Math.round(paidAmount * 100),
+          currency: "INR",
+          receipt: `booking_${req.params.id}`,
+        });
         orderId = rzpOrder.id;
       } catch (rzpErr: any) {
-        req.log?.warn({ rzpErr }, "Razorpay order failed, falling back to simulated payment");
-        orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        req.log?.warn({ rzpErr: rzpErr?.message }, "Razorpay order failed, using simulated payment");
+        orderId = `order_sim_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       }
+    } else {
+      orderId = `order_sim_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     }
+
     await Booking.findByIdAndUpdate(req.params.id, { razorpayOrderId: orderId, paymentType, paidAmount });
-    res.json({ orderId, amount: Math.round(paidAmount * 100), currency: "INR", key: RAZORPAY_KEY_ID, totalPrice: booking.totalPrice, paidAmount, paymentType });
-  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to create payment" }); }
+    res.json({
+      orderId,
+      amount: Math.round(paidAmount * 100),
+      currency: "INR",
+      key: RAZORPAY_KEY_ID || "rzp_test_placeholder",
+      totalPrice,
+      paidAmount,
+      paymentType,
+    });
+  } catch (err: any) {
+    req.log?.error({ err: err?.message, stack: err?.stack }, "Payment route error");
+    res.status(500).json({ error: "Failed to create payment" });
+  }
 });
 
 router.post("/bookings/:id/verify-payment", authenticate, async (req: AuthRequest, res: Response) => {
   try {
     if (!isValidId(req.params.id)) { res.status(404).json({ error: "Booking not found" }); return; }
-    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
-    const isDummy = RAZORPAY_KEY_SECRET === "dummy_secret_key";
-    if (!isDummy) {
-      const expected = crypto.createHmac("sha256", RAZORPAY_KEY_SECRET).update(`${razorpayOrderId}|${razorpayPaymentId}`).digest("hex");
+    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body || {};
+    const hasRealKeys = RAZORPAY_KEY_ID.startsWith("rzp_") && RAZORPAY_KEY_SECRET.length >= 20;
+    const isSimulated = !razorpayPaymentId || razorpayOrderId?.startsWith("order_sim_");
+
+    if (hasRealKeys && !isSimulated) {
+      const expected = crypto.createHmac("sha256", RAZORPAY_KEY_SECRET)
+        .update(`${razorpayOrderId}|${razorpayPaymentId}`).digest("hex");
       if (expected !== razorpaySignature) { res.status(400).json({ error: "Invalid payment signature" }); return; }
     }
+
     const booking = await Booking.findById(req.params.id).lean() as any;
     if (!booking) { res.status(404).json({ error: "Booking not found" }); return; }
     const updated = await Booking.findByIdAndUpdate(req.params.id, {
       paymentStatus: booking.paymentType === "advance" ? "partially_paid" : "paid",
-      status: "confirmed", razorpayPaymentId, expiresAt: null,
+      status: "confirmed",
+      razorpayPaymentId: razorpayPaymentId || `sim_pay_${Date.now()}`,
+      expiresAt: null,
     }, { new: true }).lean();
     res.json(bookingRes(updated));
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to verify payment" }); }

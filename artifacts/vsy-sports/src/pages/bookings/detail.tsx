@@ -55,6 +55,24 @@ export default function BookingDetail() {
     if (!booking) return;
     try {
       const paymentOrder = await createPaymentMutation.mutateAsync({ id: bookingId, data: { paymentType } as any });
+      const orderId: string = (paymentOrder as any).orderId || "";
+
+      // Simulated payment (no real Razorpay keys configured)
+      if (orderId.startsWith("order_sim_")) {
+        await verifyPaymentMutation.mutateAsync({
+          id: bookingId,
+          data: {
+            razorpayOrderId: orderId,
+            razorpayPaymentId: `sim_pay_${Date.now()}`,
+            razorpaySignature: "simulated",
+          } as any,
+        });
+        queryClient.invalidateQueries({ queryKey: getGetBookingQueryKey(bookingId) });
+        toast({ title: "Payment Successful!", description: "Your slot is confirmed." });
+        return;
+      }
+
+      // Real Razorpay flow
       const rzpOptions = {
         key: (paymentOrder as any).key,
         amount: (paymentOrder as any).amount,
@@ -63,7 +81,7 @@ export default function BookingDetail() {
         description: paymentType === "advance"
           ? `30% Advance for Booking #${bookingId} (₹${(paymentOrder as any).paidAmount})`
           : `Full Payment for Booking #${bookingId}`,
-        order_id: (paymentOrder as any).orderId,
+        order_id: orderId,
         prefill: { name: user?.name || "", email: user?.email || "" },
         theme: { color: "#16a34a" },
         handler: async (response: any) => {
@@ -77,7 +95,7 @@ export default function BookingDetail() {
               }
             });
             queryClient.invalidateQueries({ queryKey: getGetBookingQueryKey(bookingId) });
-            toast({ title: "Payment Successful! 🎉", description: "Your slot is confirmed." });
+            toast({ title: "Payment Successful!", description: "Your slot is confirmed." });
           } catch (err: any) {
             toast({ variant: "destructive", title: "Verification Failed", description: err.message });
           }

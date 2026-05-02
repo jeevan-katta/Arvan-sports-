@@ -253,27 +253,41 @@ export default function TurfDetail() {
                 .map(slot => {
                   const isSelected = selectedSlotIds.includes(slot.id);
                   const justTaken = recentlyTaken.includes(slot.id);
+                  const isReserved = !!(slot as any).isReserved;
+                  const isConfirmedBooked = !!(slot as any).isConfirmedBooked;
+                  const isUnavailable = !!slot.isBooked;
                   return (
                     <button
                       key={slot.id}
-                      disabled={!!slot.isBooked}
-                      onClick={() => !slot.isBooked && toggleSlot(slot.id)}
+                      disabled={isUnavailable}
+                      onClick={() => !isUnavailable && toggleSlot(slot.id)}
                       className={cn(
                         "h-14 flex flex-col items-center justify-center p-1 rounded-xl border-2 relative overflow-hidden transition-all",
-                        isSelected ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/20"
-                          : slot.isBooked ? "bg-muted/50 border-muted opacity-50 cursor-not-allowed"
-                          : justTaken ? "bg-orange-500/10 border-orange-400 animate-pulse"
+                        isSelected
+                          ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/20"
+                          : isUnavailable
+                          ? "bg-muted/40 border-muted/60 opacity-60 cursor-not-allowed"
+                          : justTaken
+                          ? "bg-orange-500/10 border-orange-400 animate-pulse"
                           : "bg-card border-border hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
                       )}
                     >
                       {isSelected && <span className="absolute top-1 right-1"><Check className="h-3 w-3" /></span>}
                       <span className="text-sm font-bold">{to12hr(slot.startTime)}</span>
-                      <span className={cn("text-[10px] mt-0.5", isSelected ? "opacity-80" : justTaken ? "text-orange-600 font-bold" : "text-muted-foreground")}>
+                      <span className={cn(
+                        "text-[10px] mt-0.5",
+                        isSelected ? "opacity-80"
+                          : justTaken ? "text-orange-600 font-bold"
+                          : "text-muted-foreground"
+                      )}>
                         {justTaken ? "Just taken!" : `₹${slot.price || turf.pricePerHour}`}
                       </span>
-                      {slot.isBooked && !justTaken && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-background/80">
-                          <span className="text-[10px] font-bold text-destructive">BOOKED</span>
+                      {isUnavailable && !justTaken && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-background/75">
+                          {isReserved
+                            ? <span className="text-[10px] font-bold text-yellow-600 bg-yellow-500/10 px-1 rounded">RESERVED</span>
+                            : <span className="text-[10px] font-bold text-destructive">BOOKED</span>
+                          }
                         </div>
                       )}
                     </button>

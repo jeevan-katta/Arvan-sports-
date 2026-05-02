@@ -28,6 +28,27 @@ function turfRes(turf: any, ownerName?: string, distanceKm?: number) {
   };
 }
 
+/** Auto-create 24 hourly TimeSlot documents for a turf if fewer than 24 exist */
+async function ensureDailySlots(turfId: string) {
+  const existing = await TimeSlot.find({ turfId }).lean();
+  if (existing.length >= 24) return existing;
+
+  const existingTimes = new Set((existing as any[]).map((s: any) => s.startTime));
+  const toCreate: Array<{ turfId: string; startTime: string; endTime: string }> = [];
+
+  for (let h = 0; h < 24; h++) {
+    const start = `${h.toString().padStart(2, "0")}:00`;
+    const end = h === 23 ? "23:59" : `${(h + 1).toString().padStart(2, "0")}:00`;
+    if (!existingTimes.has(start)) {
+      toCreate.push({ turfId, startTime: start, endTime: end });
+    }
+  }
+  if (toCreate.length > 0) {
+    await TimeSlot.insertMany(toCreate);
+  }
+  return await TimeSlot.find({ turfId }).lean();
+}
+
 router.get("/turfs", async (req: Request, res: Response) => {
   try {
     const { lat, lng, minPrice, maxPrice, minRating, search } = req.query as Record<string, string>;
@@ -96,18 +117,39 @@ router.get("/turfs/:id/slots", async (req: Request, res: Response) => {
     const { date } = req.query as { date?: string };
     const turf = await Turf.findById(req.params.id).lean() as any;
     if (!turf) { res.status(404).json({ error: "Turf not found" }); return; }
-    const slots = await TimeSlot.find({ turfId: req.params.id }).lean();
+
+    // Auto-seed 24 hourly slots if fewer exist
+    const slots = await ensureDailySlots(req.params.id);
+
     const now = new Date();
     const bookedDocs = date ? await Booking.find({ turfId: req.params.id, date }).lean() : [];
-    const blockedIds = new Set<string>(
-      bookedDocs
-        .filter((b: any) => b.status === "confirmed" || (b.status === "pending" && b.expiresAt && new Date(b.expiresAt) > now))
-        .flatMap((b: any) => b.slotIds?.length ? b.slotIds.map((id: any) => id.toString()) : [b.slotId?.toString()])
-    );
-    res.json(slots.map((s: any) => ({
+
+    // Confirmed bookings → isBooked. Pending not-yet-expired bookings → isReserved.
+    const bookedIds = new Set<string>();
+    const reservedIds = new Set<string>();
+
+    (bookedDocs as any[]).forEach((b: any) => {
+      const ids: string[] = b.slotIds?.length
+        ? b.slotIds.map((id: any) => id.toString())
+        : [b.slotId?.toString()].filter(Boolean);
+
+      if (b.status === "confirmed") {
+        ids.forEach(id => bookedIds.add(id));
+      } else if (b.status === "pending" && b.expiresAt && new Date(b.expiresAt) > now) {
+        ids.forEach(id => reservedIds.add(id));
+      }
+    });
+
+    // Sort slots by startTime
+    const sorted = [...slots].sort((a: any, b: any) => a.startTime.localeCompare(b.startTime));
+
+    res.json(sorted.map((s: any) => ({
       id: s._id.toString(), turfId: s.turfId?.toString(),
       startTime: s.startTime, endTime: s.endTime,
-      date: date || "", isBooked: blockedIds.has(s._id.toString()),
+      date: date || "",
+      isBooked: bookedIds.has(s._id.toString()) || reservedIds.has(s._id.toString()),
+      isReserved: reservedIds.has(s._id.toString()),
+      isConfirmedBooked: bookedIds.has(s._id.toString()),
       price: turf.pricePerHour || 0,
     })));
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch slots" }); }
@@ -117,7 +159,7 @@ router.post("/turfs/:id/slots", authenticate, requireRole("turf_owner", "admin")
   try {
     if (!isValidId(req.params.id)) { res.status(404).json({ error: "Turf not found" }); return; }
     const slot = await TimeSlot.create({ turfId: req.params.id, startTime: req.body.startTime, endTime: req.body.endTime });
-    res.status(201).json({ id: slot._id.toString(), turfId: slot.turfId?.toString(), startTime: slot.startTime, endTime: slot.endTime, date: "", isBooked: false });
+    res.status(201).json({ id: slot._id.toString(), turfId: slot.turfId?.toString(), startTime: slot.startTime, endTime: slot.endTime, date: "", isBooked: false, isReserved: false });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to create slot" }); }
 });
 
