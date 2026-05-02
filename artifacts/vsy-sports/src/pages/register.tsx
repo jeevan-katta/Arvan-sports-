@@ -10,13 +10,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Zap } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const registerSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
   email: z.string().email({ message: "Please enter a valid email address" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
-  role: z.enum(["user", "turf_owner"]).default("user"),
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -35,13 +33,12 @@ export default function Register() {
       name: "",
       email: "",
       password: "",
-      role: "user",
     },
   });
 
   const onSubmit = (data: RegisterFormValues) => {
     setIsLoading(true);
-    registerMutation.mutate({ data }, {
+    registerMutation.mutate({ data: { ...data, role: "user" } as any }, {
       onSuccess: (response) => {
         login(response.token, response.user);
         toast({
@@ -112,28 +109,6 @@ export default function Register() {
                   <FormControl>
                     <Input type="password" placeholder="••••••••" disabled={isLoading} {...field} className="h-12 bg-muted/50 border-transparent focus-visible:ring-primary/50" />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="role"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>I am a...</FormLabel>
-                  <Select disabled={isLoading} onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="h-12 bg-muted/50 border-transparent focus-visible:ring-primary/50">
-                        <SelectValue placeholder="Select account type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="user">Player / User</SelectItem>
-                      <SelectItem value="turf_owner">Turf Owner</SelectItem>
-                    </SelectContent>
-                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

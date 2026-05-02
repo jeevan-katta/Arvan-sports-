@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { MapPin, Star, ChevronLeft, Calendar as CalendarIcon, Info, Users, Car, Coffee, Shield, Check, Minus, Plus, Clock } from "lucide-react";
+import { MapPin, Star, ChevronLeft, Calendar as CalendarIcon, Info, Users, Car, Coffee, Shield, Check, Minus, Plus, Clock, ExternalLink } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -99,7 +99,31 @@ export default function TurfDetail() {
           <div className="flex justify-between items-end">
             <div className="text-white">
               <h1 className="text-2xl font-bold">{turf.name}</h1>
-              <p className="text-sm opacity-90 flex items-center mt-1"><MapPin className="h-3 w-3 mr-1" />{turf.area}</p>
+              {(turf as any).latitude && (turf as any).longitude ? (
+                <a
+                  href={`https://maps.google.com/?q=${(turf as any).latitude},${(turf as any).longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm opacity-90 flex items-center mt-1 hover:opacity-100 underline-offset-2 hover:underline"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <MapPin className="h-3 w-3 mr-1" />{turf.area}
+                  <ExternalLink className="h-2.5 w-2.5 ml-1 opacity-70" />
+                </a>
+              ) : (turf as any).address ? (
+                <a
+                  href={`https://maps.google.com/?q=${encodeURIComponent(((turf as any).address || turf.area || "") + " " + (turf.area || ""))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm opacity-90 flex items-center mt-1 hover:opacity-100 underline-offset-2 hover:underline"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <MapPin className="h-3 w-3 mr-1" />{turf.area}
+                  <ExternalLink className="h-2.5 w-2.5 ml-1 opacity-70" />
+                </a>
+              ) : (
+                <p className="text-sm opacity-90 flex items-center mt-1"><MapPin className="h-3 w-3 mr-1" />{turf.area}</p>
+              )}
             </div>
             <div className="bg-yellow-500 text-yellow-950 px-2 py-1 rounded-lg flex items-center font-bold text-sm">
               <Star className="h-4 w-4 fill-current mr-1" />{turf.rating || "New"}

@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { authenticate, AuthRequest } from "../middlewares/auth";
 import { Booking } from "@workspace/db";
 import {
-  getAllMatches, getMatch, createMatch, updateMatch, deleteMatch,
+  getAllMatches, getMatch, createMatch, updateMatch, addBall, deleteMatch,
 } from "../lib/live-scores";
 
 const router = Router();
@@ -35,7 +35,8 @@ router.post("/live-scores", authenticate, async (req: AuthRequest, res: Response
         res.status(403).json({ error: "No confirmed booking found for today at this turf" }); return;
       }
     }
-    const match = createMatch({ turfId, turfName, teamA, teamB, scoreA: 0, scoreB: 0, overs: "0.0", status: "live" });
+    const { battingTeam = "A", maxOvers = 8 } = req.body;
+    const match = createMatch({ turfId: String(turfId), turfName, teamA, teamB, scoreA: 0, scoreB: 0, overs: `0.0 / ${maxOvers}`, battingTeam, maxOvers, status: "live" });
     res.status(201).json(match);
   } catch (err) {
     req.log?.error(err);
@@ -45,6 +46,14 @@ router.post("/live-scores", authenticate, async (req: AuthRequest, res: Response
 
 router.put("/live-scores/:id", authenticate, (req: AuthRequest, res: Response) => {
   const updated = updateMatch(req.params.id, req.body);
+  if (!updated) { res.status(404).json({ error: "Match not found" }); return; }
+  res.json(updated);
+});
+
+router.post("/live-scores/:id/ball", authenticate, (req: AuthRequest, res: Response) => {
+  const { result, team } = req.body;
+  if (!result) { res.status(400).json({ error: "result required (0/1/2/3/4/6/W/NB/WD)" }); return; }
+  const updated = addBall(req.params.id, String(result), team);
   if (!updated) { res.status(404).json({ error: "Match not found" }); return; }
   res.json(updated);
 });

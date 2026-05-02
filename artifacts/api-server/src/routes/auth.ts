@@ -25,7 +25,8 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     const existing = await User.findOne({ email });
     if (existing) { res.status(400).json({ error: "Email already in use" }); return; }
     const passwordHash = await bcrypt.hash(password, 12);
-    const user = await User.create({ name, email, passwordHash, role: role || "user" });
+    const safeRole = (role === "user") ? "user" : "user";
+    const user = await User.create({ name, email, passwordHash, role: safeRole });
     const token = signToken({ id: user._id.toString(), role: user.role, email: user.email });
     res.status(201).json({ token, user: userResponse(user) });
   } catch (err) {

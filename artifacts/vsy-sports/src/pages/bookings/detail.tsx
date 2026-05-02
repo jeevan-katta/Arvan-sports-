@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { MapPin, Calendar, Clock, CreditCard, CheckCircle2, AlertCircle, Radio, Users, Zap, Timer } from "lucide-react";
+import { MapPin, Calendar, Clock, CreditCard, CheckCircle2, AlertCircle, Radio, Users, Zap, Timer, ChevronRight } from "lucide-react";
+import { ballColor } from "@/hooks/use-live-scores";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetBookingQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
@@ -40,10 +41,10 @@ export default function BookingDetail() {
   const [teamA, setTeamA] = useState("");
   const [teamB, setTeamB] = useState("");
   const [liveMatchId, setLiveMatchId] = useState<string | null>(null);
-  const [scoreA, setScoreA] = useState(0);
-  const [scoreB, setScoreB] = useState(0);
-  const [overs, setOvers] = useState("0.0");
-  const [isUpdatingScore, setIsUpdatingScore] = useState(false);
+  const [battingTeam, setBattingTeam] = useState<"A" | "B">("A");
+  const [maxOvers, setMaxOvers] = useState(8);
+  const [liveMatch, setLiveMatch] = useState<any | null>(null);
+  const [isAddingBall, setIsAddingBall] = useState(false);
 
   const { data: booking, isLoading } = useGetBooking(bookingId, { query: { enabled: !!bookingId } });
   const secondsLeft = useCountdown((booking as any)?.expiresAt);
@@ -120,6 +121,8 @@ export default function BookingDetail() {
           turfName: booking?.turfName,
           teamA: teamA.trim(),
           teamB: teamB.trim(),
+          battingTeam,
+          maxOvers,
           bookingId: String(bookingId),
         }),
       });
@@ -129,6 +132,7 @@ export default function BookingDetail() {
       }
       const match = await res.json();
       setLiveMatchId(match.id);
+      setLiveMatch(match);
       setIsLiveOpen(false);
       toast({ title: "🔴 Match is LIVE!", description: "Scores are broadcasting to Community." });
     } catch (err: any) {
@@ -136,20 +140,38 @@ export default function BookingDetail() {
     }
   };
 
-  const handleUpdateScore = async () => {
+  const handleAddBall = async (result: string) => {
     if (!liveMatchId) return;
-    setIsUpdatingScore(true);
+    setIsAddingBall(true);
     try {
-      const res = await authFetch(`/api/live-scores/${liveMatchId}`, {
-        method: "PUT",
-        body: JSON.stringify({ scoreA, scoreB, overs }),
+      const res = await authFetch(`/api/live-scores/${liveMatchId}/ball`, {
+        method: "POST",
+        body: JSON.stringify({ result, team: liveMatch?.battingTeam || battingTeam }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
-      toast({ title: "Score updated!" });
+      const updated = await res.json();
+      setLiveMatch(updated);
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error", description: err.message });
     } finally {
-      setIsUpdatingScore(false);
+      setIsAddingBall(false);
+    }
+  };
+
+  const handleSwitchInnings = async () => {
+    if (!liveMatchId || !liveMatch) return;
+    const newBatting = liveMatch.battingTeam === "A" ? "B" : "A";
+    try {
+      const res = await authFetch(`/api/live-scores/${liveMatchId}`, {
+        method: "PUT",
+        body: JSON.stringify({ battingTeam: newBatting }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      const updated = await res.json();
+      setLiveMatch(updated);
+      toast({ title: `${newBatting === "A" ? liveMatch.teamA : liveMatch.teamB} now batting` });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
     }
   };
 
@@ -158,11 +180,24 @@ export default function BookingDetail() {
     try {
       await authFetch(`/api/live-scores/${liveMatchId}`, { method: "DELETE" });
       setLiveMatchId(null);
+      setLiveMatch(null);
       toast({ title: "Match ended." });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error", description: err.message });
     }
   };
+
+  const BALL_OPTIONS = [
+    { label: "0", value: "0", cls: "bg-muted text-foreground" },
+    { label: "1", value: "1", cls: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100" },
+    { label: "2", value: "2", cls: "bg-green-200 text-green-900 dark:bg-green-800 dark:text-green-100" },
+    { label: "3", value: "3", cls: "bg-green-300 text-green-900" },
+    { label: "4", value: "4", cls: "bg-blue-500 text-white" },
+    { label: "6", value: "6", cls: "bg-purple-600 text-white" },
+    { label: "W", value: "W", cls: "bg-red-600 text-white" },
+    { label: "NB", value: "NB", cls: "bg-yellow-400 text-black" },
+    { label: "WD", value: "WD", cls: "bg-yellow-300 text-black" },
+  ];
 
   if (isLoading) return <div className="h-screen flex items-center justify-center">Loading...</div>;
   if (!booking) return <div className="h-screen flex items-center justify-center">Booking not found</div>;
@@ -325,20 +360,35 @@ export default function BookingDetail() {
               <Radio className="h-5 w-5 text-green-600 animate-pulse" />
               <h3 className="font-bold text-green-700">Today's Match — Go Live!</h3>
             </div>
-            <p className="text-sm text-muted-foreground mb-4">Stream live scores to the Community feed!</p>
+            <p className="text-sm text-muted-foreground mb-4">Stream ball-by-ball scores to the Community!</p>
             {!isLiveOpen ? (
               <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => setIsLiveOpen(true)}>
                 <Zap className="h-4 w-4 mr-2" /> Start Live Score
               </Button>
             ) : (
               <div className="space-y-3">
-                <div>
-                  <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Team A</label>
-                  <Input placeholder="e.g. Banjara Lions" value={teamA} onChange={e => setTeamA(e.target.value)} className="bg-background" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Team A</label>
+                    <Input placeholder="e.g. Banjara Lions" value={teamA} onChange={e => setTeamA(e.target.value)} className="bg-background" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Team B</label>
+                    <Input placeholder="e.g. Hitech Hawks" value={teamB} onChange={e => setTeamB(e.target.value)} className="bg-background" />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Team B</label>
-                  <Input placeholder="e.g. Hitech Hawks" value={teamB} onChange={e => setTeamB(e.target.value)} className="bg-background" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Batting First</label>
+                    <div className="flex gap-2">
+                      <button onClick={() => setBattingTeam("A")} className={cn("flex-1 h-9 rounded-lg border text-xs font-bold transition-all", battingTeam === "A" ? "border-primary bg-primary text-primary-foreground" : "border-border")}>A</button>
+                      <button onClick={() => setBattingTeam("B")} className={cn("flex-1 h-9 rounded-lg border text-xs font-bold transition-all", battingTeam === "B" ? "border-primary bg-primary text-primary-foreground" : "border-border")}>B</button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Max Overs</label>
+                    <Input type="number" min={1} max={50} value={maxOvers} onChange={e => setMaxOvers(parseInt(e.target.value) || 8)} className="bg-background h-9" />
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" className="flex-1" onClick={() => setIsLiveOpen(false)}>Cancel</Button>
@@ -351,40 +401,70 @@ export default function BookingDetail() {
           </div>
         )}
 
-        {/* Live Score Control */}
-        {liveMatchId && (
-          <div className="bg-gradient-to-br from-red-500/10 to-orange-500/5 border border-red-500/30 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse" />
-              <h3 className="font-bold text-red-600">LIVE — Update Score</h3>
+        {/* Ball-by-Ball Live Score Control */}
+        {liveMatchId && liveMatch && (
+          <div className="bg-gradient-to-br from-red-500/10 to-orange-500/5 border border-red-500/30 rounded-xl p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse" />
+                <h3 className="font-bold text-red-600">LIVE — Ball by Ball</h3>
+              </div>
+              <span className="text-xs text-muted-foreground">{liveMatch.overs}</span>
             </div>
-            <div className="grid grid-cols-2 gap-3 mb-3">
+
+            {/* Scoreboard */}
+            <div className="flex items-center justify-between bg-background rounded-xl p-3">
+              <div className={cn("flex-1 text-center", liveMatch.battingTeam === "A" ? "opacity-100" : "opacity-50")}>
+                <p className="text-xs font-bold text-muted-foreground uppercase truncate">{liveMatch.teamA}</p>
+                <p className="text-2xl font-display font-bold text-primary">{liveMatch.scoreA}<span className="text-sm font-normal">/{liveMatch.wicketsA}W</span></p>
+                {liveMatch.battingTeam === "A" && <p className="text-[10px] text-green-600 font-bold">● BATTING</p>}
+              </div>
+              <div className="px-2 text-center text-muted-foreground font-bold text-sm">vs</div>
+              <div className={cn("flex-1 text-center", liveMatch.battingTeam === "B" ? "opacity-100" : "opacity-50")}>
+                <p className="text-xs font-bold text-muted-foreground uppercase truncate">{liveMatch.teamB}</p>
+                <p className="text-2xl font-display font-bold">{liveMatch.scoreB}<span className="text-sm font-normal">/{liveMatch.wicketsB}W</span></p>
+                {liveMatch.battingTeam === "B" && <p className="text-[10px] text-green-600 font-bold">● BATTING</p>}
+              </div>
+            </div>
+
+            {/* Last balls */}
+            {liveMatch.balls && liveMatch.balls.length > 0 && (
               <div>
-                <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">{teamA}</label>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setScoreA(s => Math.max(0, s-1))}>-</Button>
-                  <span className="w-10 text-center font-bold text-lg">{scoreA}</span>
-                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setScoreA(s => s+1)}>+</Button>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1.5">Last 6 balls</p>
+                <div className="flex gap-1.5">
+                  {liveMatch.balls.slice(-6).map((b: any, i: number) => (
+                    <span key={i} className={cn("w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold", ballColor(b.result))}>
+                      {b.result}
+                    </span>
+                  ))}
                 </div>
               </div>
-              <div>
-                <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">{teamB}</label>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setScoreB(s => Math.max(0, s-1))}>-</Button>
-                  <span className="w-10 text-center font-bold text-lg">{scoreB}</span>
-                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setScoreB(s => s+1)}>+</Button>
-                </div>
+            )}
+
+            {/* Ball input buttons */}
+            <div>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase mb-2">Add Delivery</p>
+              <div className="grid grid-cols-5 gap-2">
+                {BALL_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => handleAddBall(opt.value)}
+                    disabled={isAddingBall}
+                    className={cn("h-11 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-50", opt.cls)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             </div>
-            <div className="mb-3">
-              <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Overs</label>
-              <Input placeholder="e.g. 4.2 / 8" value={overs} onChange={e => setOvers(e.target.value)} className="bg-background h-9" />
-            </div>
+
             <div className="flex gap-2">
-              <Button className="flex-1" onClick={handleUpdateScore} disabled={isUpdatingScore}>
-                {isUpdatingScore ? "Updating..." : "Update Score"}
+              <Button variant="outline" className="flex-1 text-xs" onClick={handleSwitchInnings}>
+                <ChevronRight className="h-3 w-3 mr-1" /> Switch Innings
               </Button>
-              <Button variant="outline" className="text-red-600 border-red-300" onClick={handleEndMatch}>End Match</Button>
+              <Button variant="outline" className="text-red-600 border-red-300 text-xs" onClick={handleEndMatch}>
+                End Match
+              </Button>
             </div>
           </div>
         )}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Building2, MapPin, IndianRupee, Edit3, CheckCircle2, Clock, Star } from "lucide-react";
+import { Building2, MapPin, IndianRupee, Edit3, CheckCircle2, Clock, Star, ExternalLink } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ interface Turf {
   pricePerHour: number;
   area: string;
   address: string;
+  latitude?: number;
+  longitude?: number;
   status: string;
   rating: number;
   reviewCount: number;
@@ -56,7 +58,7 @@ export default function OwnerTurfs() {
 
   const startEdit = (turf: Turf) => {
     setEditingId(turf.id);
-    setEditForm({ name: turf.name, description: turf.description, pricePerHour: turf.pricePerHour, area: turf.area, address: turf.address });
+    setEditForm({ name: turf.name, description: turf.description, pricePerHour: turf.pricePerHour, area: turf.area, address: turf.address, latitude: turf.latitude, longitude: turf.longitude });
   };
 
   if (isLoading) return <div className="p-6 text-center text-muted-foreground">Loading your turfs...</div>;
@@ -118,6 +120,26 @@ export default function OwnerTurfs() {
                     <Label className="text-xs">Address</Label>
                     <Input value={editForm.address || ""} onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))} className="h-9 mt-1" />
                   </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Latitude</Label>
+                      <Input type="number" step="any" placeholder="17.3850" value={editForm.latitude ?? ""} onChange={e => setEditForm(f => ({ ...f, latitude: e.target.value ? parseFloat(e.target.value) : undefined }))} className="h-9 mt-1" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Longitude</Label>
+                      <Input type="number" step="any" placeholder="78.4867" value={editForm.longitude ?? ""} onChange={e => setEditForm(f => ({ ...f, longitude: e.target.value ? parseFloat(e.target.value) : undefined }))} className="h-9 mt-1" />
+                    </div>
+                  </div>
+                  {editForm.latitude && editForm.longitude && (
+                    <a
+                      href={`https://maps.google.com/?q=${editForm.latitude},${editForm.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" /> Preview on Google Maps
+                    </a>
+                  )}
                   <div className="flex gap-2 mt-4">
                     <Button
                       size="sm"
@@ -135,7 +157,19 @@ export default function OwnerTurfs() {
               ) : (
                 <div className="space-y-2">
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <MapPin className="h-3.5 w-3.5" />{turf.area}
+                    <MapPin className="h-3.5 w-3.5" />
+                    {turf.latitude && turf.longitude ? (
+                      <a
+                        href={`https://maps.google.com/?q=${turf.latitude},${turf.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 hover:text-primary hover:underline"
+                      >
+                        {turf.area} <ExternalLink className="h-3 w-3 opacity-60" />
+                      </a>
+                    ) : (
+                      <span>{turf.area}</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-1 text-sm font-bold text-primary">
                     <IndianRupee className="h-3.5 w-3.5" />{turf.pricePerHour}/hr

@@ -1,14 +1,26 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
+export interface Ball {
+  result: string;
+  team: "A" | "B";
+  over: number;
+  ball: number;
+}
+
 export interface LiveMatch {
   id: string;
-  turfId: number;
+  turfId: string;
   turfName: string;
   teamA: string;
   teamB: string;
   scoreA: number;
   scoreB: number;
+  wicketsA: number;
+  wicketsB: number;
   overs: string;
+  battingTeam: "A" | "B";
+  balls: Ball[];
+  maxOvers: number;
   status: "live" | "completed" | "upcoming";
   startedAt: string;
   updatedAt: string;
@@ -64,4 +76,14 @@ export function useLiveScores() {
   }, [connect]);
 
   return { matches, connected };
+}
+
+/** Returns colored dot class for a ball result */
+export function ballColor(result: string): string {
+  if (result === "6") return "bg-purple-500 text-white";
+  if (result === "4") return "bg-blue-500 text-white";
+  if (result === "W") return "bg-red-500 text-white";
+  if (result === "NB" || result === "WD") return "bg-yellow-500 text-black";
+  if (result === "0") return "bg-muted text-muted-foreground";
+  return "bg-green-500 text-white";
 }
