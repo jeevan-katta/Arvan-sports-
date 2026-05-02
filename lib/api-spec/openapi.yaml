@@ -1,22 +1,28 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Vsy Sports API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: auth
+  - name: turfs
+  - name: bookings
+  - name: community
+  - name: events
+  - name: shop
+  - name: orders
+  - name: admin
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +30,1755 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # AUTH
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBody"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Login success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  # TURFS
+  /turfs:
+    get:
+      operationId: listTurfs
+      tags: [turfs]
+      summary: List all turfs (nearest first)
+      parameters:
+        - name: lat
+          in: query
+          schema:
+            type: number
+        - name: lng
+          in: query
+          schema:
+            type: number
+        - name: minPrice
+          in: query
+          schema:
+            type: number
+        - name: maxPrice
+          in: query
+          schema:
+            type: number
+        - name: minRating
+          in: query
+          schema:
+            type: number
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of turfs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Turf"
+    post:
+      operationId: createTurf
+      tags: [turfs]
+      summary: Create a turf (turf owner)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTurfBody"
+      responses:
+        "201":
+          description: Turf created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Turf"
+
+  /turfs/{id}:
+    get:
+      operationId: getTurf
+      tags: [turfs]
+      summary: Get turf details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Turf detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TurfDetail"
+    put:
+      operationId: updateTurf
+      tags: [turfs]
+      summary: Update turf
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTurfBody"
+      responses:
+        "200":
+          description: Updated turf
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Turf"
+    delete:
+      operationId: deleteTurf
+      tags: [turfs]
+      summary: Delete turf
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /turfs/{id}/slots:
+    get:
+      operationId: getTurfSlots
+      tags: [turfs]
+      summary: Get available slots for a turf on a date
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Available slots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TimeSlot"
+    post:
+      operationId: createTurfSlot
+      tags: [turfs]
+      summary: Create a time slot for a turf
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSlotBody"
+      responses:
+        "201":
+          description: Slot created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimeSlot"
+
+  /turfs/{id}/review:
+    post:
+      operationId: reviewTurf
+      tags: [turfs]
+      summary: Leave a review for a turf
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewBody"
+      responses:
+        "201":
+          description: Review submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+
+  # BOOKINGS
+  /bookings:
+    get:
+      operationId: listBookings
+      tags: [bookings]
+      summary: List user bookings (or all for admin)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, confirmed, cancelled]
+        - name: date
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+    post:
+      operationId: createBooking
+      tags: [bookings]
+      summary: Book a turf slot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookingBody"
+      responses:
+        "201":
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+
+  /bookings/{id}:
+    get:
+      operationId: getBooking
+      tags: [bookings]
+      summary: Get booking details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+    delete:
+      operationId: cancelBooking
+      tags: [bookings]
+      summary: Cancel a booking
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+
+  /bookings/{id}/payment:
+    post:
+      operationId: createBookingPayment
+      tags: [bookings]
+      summary: Create payment for booking (Razorpay)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payment order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentOrder"
+
+  /bookings/{id}/verify-payment:
+    post:
+      operationId: verifyBookingPayment
+      tags: [bookings]
+      summary: Verify Razorpay payment signature
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyPaymentBody"
+      responses:
+        "200":
+          description: Payment verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+
+  # COMMUNITY
+  /community/posts:
+    get:
+      operationId: listPosts
+      tags: [community]
+      summary: List community posts
+      parameters:
+        - name: lat
+          in: query
+          schema:
+            type: number
+        - name: lng
+          in: query
+          schema:
+            type: number
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, closed]
+      responses:
+        "200":
+          description: Posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
+    post:
+      operationId: createPost
+      tags: [community]
+      summary: Create a community post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePostBody"
+      responses:
+        "201":
+          description: Post created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+
+  /community/posts/{id}:
+    get:
+      operationId: getPost
+      tags: [community]
+      summary: Get post details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostDetail"
+    delete:
+      operationId: deletePost
+      tags: [community]
+      summary: Delete a post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /community/posts/{id}/join:
+    post:
+      operationId: joinPost
+      tags: [community]
+      summary: Join a match post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Joined
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+
+  /community/posts/{id}/messages:
+    get:
+      operationId: getPostMessages
+      tags: [community]
+      summary: Get chat messages for a post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+    post:
+      operationId: sendPostMessage
+      tags: [community]
+      summary: Send a chat message to a post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageBody"
+      responses:
+        "201":
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+
+  # EVENTS
+  /events:
+    get:
+      operationId: listEvents
+      tags: [events]
+      summary: List events
+      parameters:
+        - name: featured
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Event"
+    post:
+      operationId: createEvent
+      tags: [events]
+      summary: Create an event (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEventBody"
+      responses:
+        "201":
+          description: Event created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+
+  /events/{id}:
+    get:
+      operationId: getEvent
+      tags: [events]
+      summary: Get event details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventDetail"
+    put:
+      operationId: updateEvent
+      tags: [events]
+      summary: Update an event (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEventBody"
+      responses:
+        "200":
+          description: Updated event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+    delete:
+      operationId: deleteEvent
+      tags: [events]
+      summary: Delete an event (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /events/{id}/join:
+    post:
+      operationId: joinEvent
+      tags: [events]
+      summary: Join an event
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Joined
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+
+  # SHOP - PRODUCTS
+  /shop/products:
+    get:
+      operationId: listProducts
+      tags: [shop]
+      summary: List products
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+    post:
+      operationId: createProduct
+      tags: [shop]
+      summary: Create a product (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProductBody"
+      responses:
+        "201":
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+
+  /shop/products/{id}:
+    get:
+      operationId: getProduct
+      tags: [shop]
+      summary: Get product details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+    put:
+      operationId: updateProduct
+      tags: [shop]
+      summary: Update a product (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProductBody"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+    delete:
+      operationId: deleteProduct
+      tags: [shop]
+      summary: Delete a product (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  # CART
+  /shop/cart:
+    get:
+      operationId: getCart
+      tags: [shop]
+      summary: Get user cart
+      responses:
+        "200":
+          description: Cart
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+    post:
+      operationId: addToCart
+      tags: [shop]
+      summary: Add item to cart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddToCartBody"
+      responses:
+        "200":
+          description: Updated cart
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+
+  /shop/cart/{productId}:
+    delete:
+      operationId: removeFromCart
+      tags: [shop]
+      summary: Remove item from cart
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated cart
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+
+  # ORDERS
+  /orders:
+    get:
+      operationId: listOrders
+      tags: [orders]
+      summary: List user orders (or all for admin)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, processing, shipped, delivered, cancelled]
+      responses:
+        "200":
+          description: Orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Place an order from cart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderBody"
+      responses:
+        "201":
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get order details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  /orders/{id}/status:
+    put:
+      operationId: updateOrderStatus
+      tags: [orders]
+      summary: Update order status (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOrderStatusBody"
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  /orders/{id}/payment:
+    post:
+      operationId: createOrderPayment
+      tags: [orders]
+      summary: Create Razorpay order for shop checkout
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payment order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentOrder"
+
+  /orders/{id}/verify-payment:
+    post:
+      operationId: verifyOrderPayment
+      tags: [orders]
+      summary: Verify Razorpay payment for order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyPaymentBody"
+      responses:
+        "200":
+          description: Verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  # ADMIN ENDPOINTS
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get admin dashboard stats
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  /admin/users:
+    get:
+      operationId: listUsers
+      tags: [admin]
+      summary: List all users
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+
+  /admin/users/{id}/block:
+    put:
+      operationId: blockUser
+      tags: [admin]
+      summary: Block or unblock a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlockUserBody"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /admin/users/{id}/role:
+    put:
+      operationId: updateUserRole
+      tags: [admin]
+      summary: Update user role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRoleBody"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /admin/turfs/{id}/approve:
+    put:
+      operationId: approveTurf
+      tags: [admin]
+      summary: Approve or reject a turf
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveTurfBody"
+      responses:
+        "200":
+          description: Updated turf
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Turf"
+
+  /admin/turfs/{id}/feature:
+    put:
+      operationId: featureTurf
+      tags: [admin]
+      summary: Feature or unfeature a turf
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeatureTurfBody"
+      responses:
+        "200":
+          description: Updated turf
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Turf"
+
+  /admin/revenue:
+    get:
+      operationId: getRevenueStats
+      tags: [admin]
+      summary: Get revenue and booking trends (charts)
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [week, month, year]
+      responses:
+        "200":
+          description: Revenue stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevenueStats"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    SuccessResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+
+    # AUTH
+    RegisterBody:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+          enum: [user, turf_owner]
+
+    LoginBody:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+
+    User:
+      type: object
+      required: [id, name, email, role]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [user, turf_owner, admin]
+        phone:
+          type: string
+        avatar:
+          type: string
+        blocked:
+          type: boolean
+        createdAt:
+          type: string
+
+    # TURFS
+    Turf:
+      type: object
+      required: [id, name, pricePerHour, ownerId]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        pricePerHour:
+          type: number
+        images:
+          type: array
+          items:
+            type: string
+        rating:
+          type: number
+        reviewCount:
+          type: integer
+        latitude:
+          type: number
+        longitude:
+          type: number
+        address:
+          type: string
+        area:
+          type: string
+        amenities:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        featured:
+          type: boolean
+        ownerId:
+          type: integer
+        ownerName:
+          type: string
+        distanceKm:
+          type: number
+        createdAt:
+          type: string
+
+    TurfDetail:
+      allOf:
+        - $ref: "#/components/schemas/Turf"
+        - type: object
+          properties:
+            reviews:
+              type: array
+              items:
+                $ref: "#/components/schemas/Review"
+
+    CreateTurfBody:
+      type: object
+      required: [name, pricePerHour]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        pricePerHour:
+          type: number
+        images:
+          type: array
+          items:
+            type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        address:
+          type: string
+        area:
+          type: string
+        amenities:
+          type: array
+          items:
+            type: string
+
+    TimeSlot:
+      type: object
+      required: [id, turfId, startTime, endTime, date, isBooked]
+      properties:
+        id:
+          type: integer
+        turfId:
+          type: integer
+        startTime:
+          type: string
+        endTime:
+          type: string
+        date:
+          type: string
+        isBooked:
+          type: boolean
+        price:
+          type: number
+
+    CreateSlotBody:
+      type: object
+      required: [startTime, endTime]
+      properties:
+        startTime:
+          type: string
+        endTime:
+          type: string
+        recurringDays:
+          type: array
+          items:
+            type: integer
+
+    Review:
+      type: object
+      required: [id, turfId, userId, rating]
+      properties:
+        id:
+          type: integer
+        turfId:
+          type: integer
+        userId:
+          type: integer
+        userName:
+          type: string
+        userAvatar:
+          type: string
+        rating:
+          type: integer
+        comment:
+          type: string
+        createdAt:
+          type: string
+
+    ReviewBody:
+      type: object
+      required: [rating]
+      properties:
+        rating:
+          type: integer
+        comment:
+          type: string
+
+    # BOOKINGS
+    Booking:
+      type: object
+      required: [id, turfId, userId, slotId, date, totalPrice, status]
+      properties:
+        id:
+          type: integer
+        turfId:
+          type: integer
+        turfName:
+          type: string
+        turfImage:
+          type: string
+        turfArea:
+          type: string
+        userId:
+          type: integer
+        userName:
+          type: string
+        slotId:
+          type: integer
+        startTime:
+          type: string
+        endTime:
+          type: string
+        date:
+          type: string
+        totalPrice:
+          type: number
+        status:
+          type: string
+          enum: [pending, confirmed, cancelled]
+        paymentStatus:
+          type: string
+          enum: [unpaid, paid]
+        createdAt:
+          type: string
+
+    CreateBookingBody:
+      type: object
+      required: [turfId, slotId, date]
+      properties:
+        turfId:
+          type: integer
+        slotId:
+          type: integer
+        date:
+          type: string
+
+    PaymentOrder:
+      type: object
+      required: [orderId, amount, currency, key]
+      properties:
+        orderId:
+          type: string
+        amount:
+          type: number
+        currency:
+          type: string
+        key:
+          type: string
+
+    VerifyPaymentBody:
+      type: object
+      required: [razorpayOrderId, razorpayPaymentId, razorpaySignature]
+      properties:
+        razorpayOrderId:
+          type: string
+        razorpayPaymentId:
+          type: string
+        razorpaySignature:
+          type: string
+
+    # COMMUNITY
+    Post:
+      type: object
+      required: [id, userId, title, status]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        userName:
+          type: string
+        userAvatar:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        playersNeeded:
+          type: integer
+        playersJoined:
+          type: integer
+        matchDate:
+          type: string
+        matchTime:
+          type: string
+        turfName:
+          type: string
+        area:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        status:
+          type: string
+          enum: [open, closed]
+        createdAt:
+          type: string
+
+    PostDetail:
+      allOf:
+        - $ref: "#/components/schemas/Post"
+        - type: object
+          properties:
+            joinedUsers:
+              type: array
+              items:
+                $ref: "#/components/schemas/User"
+            messages:
+              type: array
+              items:
+                $ref: "#/components/schemas/Message"
+
+    CreatePostBody:
+      type: object
+      required: [title, playersNeeded]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        playersNeeded:
+          type: integer
+        matchDate:
+          type: string
+        matchTime:
+          type: string
+        turfName:
+          type: string
+        area:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+
+    Message:
+      type: object
+      required: [id, postId, userId, content]
+      properties:
+        id:
+          type: integer
+        postId:
+          type: integer
+        userId:
+          type: integer
+        userName:
+          type: string
+        userAvatar:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+
+    SendMessageBody:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+
+    # EVENTS
+    Event:
+      type: object
+      required: [id, title, date]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        date:
+          type: string
+        time:
+          type: string
+        venue:
+          type: string
+        area:
+          type: string
+        image:
+          type: string
+        prize:
+          type: string
+        entryFee:
+          type: number
+        maxParticipants:
+          type: integer
+        currentParticipants:
+          type: integer
+        featured:
+          type: boolean
+        status:
+          type: string
+          enum: [upcoming, ongoing, completed]
+        createdAt:
+          type: string
+
+    EventDetail:
+      allOf:
+        - $ref: "#/components/schemas/Event"
+        - type: object
+          properties:
+            participants:
+              type: array
+              items:
+                $ref: "#/components/schemas/User"
+
+    CreateEventBody:
+      type: object
+      required: [title, date]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        date:
+          type: string
+        time:
+          type: string
+        venue:
+          type: string
+        area:
+          type: string
+        image:
+          type: string
+        prize:
+          type: string
+        entryFee:
+          type: number
+        maxParticipants:
+          type: integer
+        featured:
+          type: boolean
+
+    # SHOP
+    Product:
+      type: object
+      required: [id, name, price, category]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        originalPrice:
+          type: number
+        images:
+          type: array
+          items:
+            type: string
+        category:
+          type: string
+        brand:
+          type: string
+        stock:
+          type: integer
+        rating:
+          type: number
+        reviewCount:
+          type: integer
+        createdAt:
+          type: string
+
+    CreateProductBody:
+      type: object
+      required: [name, price, category]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        originalPrice:
+          type: number
+        images:
+          type: array
+          items:
+            type: string
+        category:
+          type: string
+        brand:
+          type: string
+        stock:
+          type: integer
+
+    Cart:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CartItem"
+        total:
+          type: number
+        itemCount:
+          type: integer
+
+    CartItem:
+      type: object
+      required: [productId, name, price, quantity]
+      properties:
+        productId:
+          type: integer
+        name:
+          type: string
+        image:
+          type: string
+        price:
+          type: number
+        quantity:
+          type: integer
+        subtotal:
+          type: number
+
+    AddToCartBody:
+      type: object
+      required: [productId, quantity]
+      properties:
+        productId:
+          type: integer
+        quantity:
+          type: integer
+
+    # ORDERS
+    Order:
+      type: object
+      required: [id, userId, items, totalAmount, status]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        userName:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        totalAmount:
+          type: number
+        status:
+          type: string
+          enum: [pending, processing, shipped, delivered, cancelled]
+        paymentStatus:
+          type: string
+          enum: [unpaid, paid]
+        shippingAddress:
+          type: string
+        createdAt:
+          type: string
+
+    OrderItem:
+      type: object
+      required: [productId, name, price, quantity]
+      properties:
+        productId:
+          type: integer
+        name:
+          type: string
+        image:
+          type: string
+        price:
+          type: number
+        quantity:
+          type: integer
+
+    CreateOrderBody:
+      type: object
+      required: [shippingAddress]
+      properties:
+        shippingAddress:
+          type: string
+
+    UpdateOrderStatusBody:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [pending, processing, shipped, delivered, cancelled]
+
+    # ADMIN
+    AdminStats:
+      type: object
+      required: [totalUsers, totalBookings, totalRevenue, activeTurfs, recentBookings]
+      properties:
+        totalUsers:
+          type: integer
+        totalBookings:
+          type: integer
+        totalRevenue:
+          type: number
+        activeTurfs:
+          type: integer
+        pendingTurfs:
+          type: integer
+        totalEvents:
+          type: integer
+        totalOrders:
+          type: integer
+        recentBookings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Booking"
+
+    RevenueStats:
+      type: object
+      required: [bookingRevenue, shopRevenue, chartData]
+      properties:
+        bookingRevenue:
+          type: number
+        shopRevenue:
+          type: number
+        chartData:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChartPoint"
+
+    ChartPoint:
+      type: object
+      required: [label, bookings, revenue]
+      properties:
+        label:
+          type: string
+        bookings:
+          type: integer
+        revenue:
+          type: number
+
+    BlockUserBody:
+      type: object
+      required: [blocked]
+      properties:
+        blocked:
+          type: boolean
+
+    UpdateRoleBody:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [user, turf_owner, admin]
+
+    ApproveTurfBody:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [approved, rejected]
+
+    FeatureTurfBody:
+      type: object
+      required: [featured]
+      properties:
+        featured:
+          type: boolean

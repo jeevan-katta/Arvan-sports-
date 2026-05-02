@@ -1,0 +1,137 @@
+import { useState } from "react";
+import { Link, useLocation } from "wouter";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useLogin } from "@workspace/api-client-react";
+import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { Zap } from "lucide-react";
+
+const loginSchema = z.object({
+  email: z.string().email({ message: "Please enter a valid email address" }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
+
+export default function Login() {
+  const [, setLocation] = useLocation();
+  const { login } = useAuth();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const loginMutation = useLogin();
+
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  const onSubmit = (data: LoginFormValues) => {
+    setIsLoading(true);
+    loginMutation.mutate({ data }, {
+      onSuccess: (response) => {
+        login(response.token, response.user);
+        toast({
+          title: "Welcome back!",
+          description: "Successfully logged in.",
+        });
+        
+        if (response.user.role === "admin") {
+          setLocation("/admin");
+        } else if (response.user.role === "turf_owner") {
+          setLocation("/owner");
+        } else {
+          setLocation("/");
+        }
+      },
+      onError: (error) => {
+        setIsLoading(false);
+        toast({
+          variant: "destructive",
+          title: "Login failed",
+          description: error.message || "Invalid credentials. Please try again.",
+        });
+      }
+    });
+  };
+
+  const fillAdminCredentials = () => {
+    form.setValue("email", "admin@vsy.com");
+    form.setValue("password", "admin123");
+  };
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="flex-1 flex flex-col justify-center px-6 pb-20">
+        
+        <div className="mb-10 text-center">
+          <div className="w-16 h-16 bg-primary rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-lg shadow-primary/20">
+            <Zap className="h-8 w-8 text-primary-foreground fill-primary-foreground" />
+          </div>
+          <h1 className="text-3xl font-display font-bold tracking-tight">WELCOME TO VSY</h1>
+          <p className="text-muted-foreground mt-2 text-sm">Log in to book turfs and join events</p>
+        </div>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input placeholder="name@example.com" type="email" autoCapitalize="none" autoCorrect="off" disabled={isLoading} {...field} className="h-12 bg-muted/50 border-transparent focus-visible:ring-primary/50" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex justify-between items-center">
+                    <FormLabel>Password</FormLabel>
+                    <span className="text-xs text-primary font-medium cursor-pointer">Forgot password?</span>
+                  </div>
+                  <FormControl>
+                    <Input type="password" placeholder="••••••••" disabled={isLoading} {...field} className="h-12 bg-muted/50 border-transparent focus-visible:ring-primary/50" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <Button type="submit" className="w-full h-12 text-base font-bold rounded-xl mt-6" disabled={isLoading}>
+              {isLoading ? "Logging in..." : "LOG IN"}
+            </Button>
+          </form>
+        </Form>
+
+        <div className="mt-8 text-center space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Don't have an account?{" "}
+            <Link href="/register" className="text-primary font-bold hover:underline">Register now</Link>
+          </p>
+
+          <div className="pt-6 border-t border-border/50">
+            <Button variant="outline" size="sm" onClick={fillAdminCredentials} className="text-xs">
+              Fill Demo Admin Credentials
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
