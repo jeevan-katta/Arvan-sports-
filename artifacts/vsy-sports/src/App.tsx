@@ -34,6 +34,7 @@ import AdminEvents from "@/pages/admin/events";
 import AdminShop from "@/pages/admin/shop";
 import AdminOwners from "@/pages/admin/owners";
 import AdminBookings from "@/pages/admin/bookings";
+import AdminPayout from "@/pages/admin/payout";
 
 import OwnerDashboard from "@/pages/owner";
 import OwnerTurfs from "@/pages/owner/turfs";
@@ -96,6 +97,7 @@ function Router() {
             <Route path="/admin/shop" component={() => <AdminRoute component={AdminShop} />} />
             <Route path="/admin/owners" component={() => <AdminRoute component={AdminOwners} />} />
             <Route path="/admin/bookings" component={() => <AdminRoute component={AdminBookings} />} />
+            <Route path="/admin/payout" component={() => <AdminRoute component={AdminPayout} />} />
             <Route component={NotFound} />
           </Switch>
         </AdminLayout>
