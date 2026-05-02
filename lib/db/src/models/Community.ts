@@ -6,6 +6,8 @@ export interface IPost extends Document {
   title: string;
   description?: string;
   playersNeeded: number;
+  lookingFor: "team" | "individual";
+  teamName?: string;
   matchDate?: string;
   matchTime?: string;
   turfName?: string;
@@ -18,6 +20,8 @@ export interface IPostJoin extends Document {
   _id: mongoose.Types.ObjectId;
   postId: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
+  teamName?: string;
+  isTeamJoin: boolean;
   joinedAt: Date;
 }
 
@@ -34,6 +38,8 @@ const PostSchema = new Schema<IPost>({
   title: { type: String, required: true },
   description: String,
   playersNeeded: { type: Number, default: 1 },
+  lookingFor: { type: String, enum: ["team", "individual"], default: "individual" },
+  teamName: String,
   matchDate: String,
   matchTime: String,
   turfName: String,
@@ -44,6 +50,8 @@ const PostSchema = new Schema<IPost>({
 const PostJoinSchema = new Schema<IPostJoin>({
   postId: { type: Schema.Types.ObjectId, ref: "Post", required: true },
   userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  teamName: String,
+  isTeamJoin: { type: Boolean, default: false },
   joinedAt: { type: Date, default: Date.now },
 });
 

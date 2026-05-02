@@ -51,17 +51,36 @@ export interface LiveMatch {
   currentBowler?: string;
 }
 
+export interface AppNotification {
+  id: string;
+  type: "new_post" | "match_live";
+  message: string;
+  area?: string;
+  at: number;
+}
+
 type WsMessage =
   | { type: "init"; matches: LiveMatch[] }
   | { type: "match_created"; match: LiveMatch }
   | { type: "score_update"; match: LiveMatch }
-  | { type: "match_ended"; id: string };
+  | { type: "match_ended"; id: string }
+  | { type: "notification"; notifType: "new_post" | "match_live"; message: string; post?: any; match?: LiveMatch };
 
 export function useLiveScores() {
   const [matches, setMatches] = useState<LiveMatch[]>([]);
   const [connected, setConnected] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const addNotification = useCallback((n: Omit<AppNotification, "id" | "at">) => {
+    const notif: AppNotification = { ...n, id: Math.random().toString(36).slice(2), at: Date.now() };
+    setNotifications(prev => [notif, ...prev].slice(0, 20));
+    // Browser notification (if permission granted)
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      new Notification("Vsy Sports", { body: notif.message, icon: "/logo.png" });
+    }
+  }, []);
 
   const connect = useCallback(() => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
@@ -81,13 +100,23 @@ export function useLiveScores() {
           setMatches(msg.matches);
         } else if (msg.type === "match_created") {
           setMatches((prev) => [...prev, msg.match]);
+          addNotification({ type: "match_live", message: `🔴 Match going live: ${msg.match.teamA} vs ${msg.match.teamB}` });
         } else if (msg.type === "score_update") {
           setMatches((prev) => prev.map((m) => (m.id === msg.match.id ? msg.match : m)));
         } else if (msg.type === "match_ended") {
           setMatches((prev) => prev.filter((m) => m.id !== msg.id));
+        } else if (msg.type === "notification") {
+          addNotification({ type: msg.notifType, message: msg.message });
         }
       } catch {}
     };
+  }, [addNotification]);
+
+  // Request browser notification permission on mount
+  useEffect(() => {
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
   }, []);
 
   useEffect(() => {
@@ -98,7 +127,9 @@ export function useLiveScores() {
     };
   }, [connect]);
 
-  return { matches, connected };
+  const clearNotifications = useCallback(() => setNotifications([]), []);
+
+  return { matches, connected, notifications, clearNotifications };
 }
 
 export function ballColor(result: string): string {

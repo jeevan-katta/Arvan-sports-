@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import {
   MapPin, Calendar, Clock, Users, Plus, MessageSquare,
-  Radio, ChevronRight, Zap, Trophy, UserPlus,
+  Radio, ChevronRight, Zap, Trophy, UserPlus, Swords, Bell,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListPostsQueryKey } from "@workspace/api-client-react";
@@ -27,6 +27,8 @@ import { cn } from "@/lib/utils";
 const postSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters"),
   description: z.string().optional(),
+  lookingFor: z.enum(["team", "individual"]),
+  teamName: z.string().optional(),
   playersNeeded: z.coerce.number().min(1),
   matchDate: z.string().min(1),
   matchTime: z.string().min(1),
@@ -44,28 +46,36 @@ const scoreSchema = z.object({
 
 type PostForm = z.infer<typeof postSchema>;
 type ScoreForm = z.infer<typeof scoreSchema>;
+type Tab = "matches" | "scores";
 
 export default function Community() {
+  const [activeTab, setActiveTab] = useState<Tab>("matches");
   const [isPostDialogOpen, setIsPostDialogOpen] = useState(false);
   const [isScoreDialogOpen, setIsScoreDialogOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { token, isAuthenticated } = useAuth();
-  const { matches, connected } = useLiveScores();
+  const { matches, connected, notifications, clearNotifications } = useLiveScores();
 
   const { data: posts, isLoading } = useListPosts({ status: "open" });
   const createPostMutation = useCreatePost();
 
   const postForm = useForm<PostForm>({
     resolver: zodResolver(postSchema),
-    defaultValues: { title: "", description: "", playersNeeded: 1, matchDate: format(new Date(), "yyyy-MM-dd"), matchTime: "18:00", turfName: "", area: "" },
+    defaultValues: {
+      title: "", description: "", lookingFor: "individual", teamName: "",
+      playersNeeded: 5, matchDate: format(new Date(), "yyyy-MM-dd"), matchTime: "18:00", turfName: "", area: "",
+    },
   });
 
   const scoreForm = useForm<ScoreForm>({
     resolver: zodResolver(scoreSchema),
     defaultValues: { teamA: "", teamB: "", venue: "", maxOvers: 8, battingTeam: "A" },
   });
+
+  const watchLookingFor = postForm.watch("lookingFor");
 
   const authFetch = (url: string, options: RequestInit = {}) =>
     fetch(url, {
@@ -74,9 +84,9 @@ export default function Community() {
     });
 
   const onPostSubmit = (data: PostForm) => {
-    createPostMutation.mutate({ data }, {
+    createPostMutation.mutate({ data: { ...data, lookingFor: data.lookingFor } as any }, {
       onSuccess: () => {
-        toast({ title: "Match posted!" });
+        toast({ title: "Match posted!", description: "Nearby players will be notified." });
         setIsPostDialogOpen(false);
         postForm.reset();
         queryClient.invalidateQueries({ queryKey: getListPostsQueryKey() });
@@ -95,8 +105,7 @@ export default function Community() {
       const match = await res.json();
       setIsScoreDialogOpen(false);
       scoreForm.reset();
-      toast({ title: "🔴 Scorecard is LIVE!", description: "Go to Profile → Manage Scorecard to score balls." });
-      // Navigate to profile/match
+      toast({ title: "🔴 Scorecard is LIVE!", description: "Go to your Profile to score balls." });
       window.location.href = `/profile/match/${match.id}`;
     } catch (e: any) {
       toast({ variant: "destructive", title: "Failed to start", description: e.message });
@@ -104,95 +113,313 @@ export default function Community() {
   };
 
   const liveMatches = matches.filter(m => m.status === "live");
+  const unreadCount = notifications.length;
 
   return (
-    <div className="flex flex-col min-h-full pb-24 bg-muted/10">
-      <Header title="Community" showLocation={false} />
-
-      {/* ═══════════════════════════════════════
-          SECTION 1 — LIVE SCORES
-      ════════════════════════════════════════ */}
-      <section>
-        {/* Section header */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-2 bg-background">
-          <div className="flex items-center gap-2">
-            <div className={cn("h-2.5 w-2.5 rounded-full", liveMatches.length > 0 ? "bg-red-500 animate-pulse" : "bg-muted-foreground/30")} />
-            <h2 className="font-bold text-sm uppercase tracking-wider">
-              Live Scores
-              {liveMatches.length > 0 && (
-                <span className="ml-1.5 text-red-600 font-bold">{liveMatches.length}</span>
-              )}
-            </h2>
-            <span className={cn("text-[10px] font-medium", connected ? "text-green-600" : "text-muted-foreground")}>
-              {connected ? "● live" : "○ connecting"}
+    <div className="flex flex-col h-screen bg-background overflow-hidden">
+      {/* Custom header with notification bell */}
+      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border bg-background">
+        <h1 className="font-bold text-xl tracking-tight">Community</h1>
+        <button
+          className="relative p-1"
+          onClick={() => { setNotifOpen(v => !v); if (unreadCount > 0) clearNotifications(); }}
+        >
+          <Bell className="h-5 w-5 text-muted-foreground" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+              {unreadCount > 9 ? "9+" : unreadCount}
             </span>
+          )}
+        </button>
+      </div>
+
+      {/* Notification dropdown */}
+      {notifOpen && (
+        <div className="absolute top-14 right-4 z-50 w-72 bg-background border border-border rounded-xl shadow-xl overflow-hidden">
+          <div className="px-3 py-2 border-b border-border flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Notifications</span>
+            <button onClick={() => setNotifOpen(false)} className="text-xs text-muted-foreground hover:text-foreground">Close</button>
           </div>
-          {isAuthenticated && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 rounded-xl gap-1.5 text-xs font-bold border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/30"
-              onClick={() => setIsScoreDialogOpen(true)}
-            >
-              <Trophy className="h-3.5 w-3.5" /> Score Live
-            </Button>
+          {notifications.length === 0 ? (
+            <div className="px-4 py-6 text-center text-sm text-muted-foreground">No new notifications</div>
+          ) : (
+            <div className="max-h-64 overflow-y-auto divide-y divide-border">
+              {notifications.map(n => (
+                <div key={n.id} className="px-3 py-2.5">
+                  <p className="text-sm font-medium">{n.message}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{new Date(n.at).toLocaleTimeString()}</p>
+                </div>
+              ))}
+            </div>
           )}
         </div>
+      )}
 
-        {/* Live match cards */}
-        <div className="px-4 pb-4 bg-background border-b-4 border-muted">
-          {liveMatches.length === 0 ? (
-            <div className="flex items-center gap-3 py-4 px-3 rounded-xl border border-dashed border-border/60">
-              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                <Radio className="h-5 w-5 text-muted-foreground opacity-40" />
+      {/* Tab switcher */}
+      <div className="flex-shrink-0 flex bg-background border-b border-border">
+        <button
+          onClick={() => setActiveTab("matches")}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold transition-colors border-b-2",
+            activeTab === "matches"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Users className="h-4 w-4" />
+          Find Players
+          {posts && posts.length > 0 && (
+            <span className={cn("text-[10px] font-bold rounded-full px-1.5 py-0.5",
+              activeTab === "matches" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
+              {posts.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("scores")}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold transition-colors border-b-2",
+            activeTab === "scores"
+              ? "border-red-500 text-red-600"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Radio className={cn("h-4 w-4", liveMatches.length > 0 && "animate-pulse text-red-500")} />
+          Live Scores
+          {liveMatches.length > 0 && (
+            <span className={cn("text-[10px] font-bold rounded-full px-1.5 py-0.5",
+              activeTab === "scores" ? "bg-red-500/10 text-red-600" : "bg-red-50 text-red-500 dark:bg-red-950/30")}>
+              {liveMatches.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* ═══════════════════════════════════
+          TAB: FIND PLAYERS
+      ════════════════════════════════════ */}
+      {activeTab === "matches" && (
+        <div className="flex-1 overflow-y-auto">
+          {/* Section action bar */}
+          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border/50 px-4 py-2.5 flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">
+              {posts?.length ? `${posts.length} open match${posts.length !== 1 ? "es" : ""}` : "No open matches"}
+            </p>
+            <Button size="sm" className="h-8 rounded-xl gap-1.5 text-xs font-bold" onClick={() => setIsPostDialogOpen(true)}>
+              <Plus className="h-3.5 w-3.5" /> Post Match
+            </Button>
+          </div>
+
+          <div className="p-4 space-y-3">
+            {isLoading ? (
+              [1, 2, 3].map(i => <div key={i} className="h-44 rounded-xl bg-muted animate-pulse" />)
+            ) : posts?.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <Users className="h-8 w-8 text-primary/50" />
+                </div>
+                <h3 className="font-bold text-base">No open matches</h3>
+                <p className="text-muted-foreground text-sm mt-1 mb-5">Be the first to post and find players!</p>
+                <Button onClick={() => setIsPostDialogOpen(true)} className="gap-2 rounded-xl font-bold px-6">
+                  <Plus className="h-4 w-4" /> Post a Match
+                </Button>
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">No live matches right now</p>
-                <p className="text-xs text-muted-foreground/70">Start a scorecard to broadcast live!</p>
-              </div>
+            ) : (
+              posts.map(post => {
+                const p = post as any;
+                const isTeamMode = p.lookingFor === "team";
+                const spotsLeft = Math.max(0, p.playersNeeded - (p.playersJoined || 0));
+                const isFull = spotsLeft === 0;
+                return (
+                  <Link key={p.id} href={`/community/${p.id}`} className="block group">
+                    <Card className={cn(
+                      "border shadow-sm hover:shadow-md transition-all",
+                      isFull ? "border-muted opacity-70" : "hover:border-primary/40"
+                    )}>
+                      <div className="p-4">
+                        {/* Header */}
+                        <div className="flex items-start gap-3 mb-3">
+                          <Avatar className="h-10 w-10 border-2 border-primary/10 flex-shrink-0">
+                            <AvatarImage src={p.userAvatar} />
+                            <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">
+                              {p.userName?.substring(0, 2).toUpperCase() || "U"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-sm leading-tight line-clamp-1 group-hover:text-primary transition-colors">{p.title}</h4>
+                            <p className="text-xs text-muted-foreground mt-0.5">by {p.userName}</p>
+                          </div>
+                          <div className="flex-shrink-0 flex flex-col items-end gap-1">
+                            {isFull ? (
+                              <Badge variant="secondary" className="text-[10px] font-bold">Full</Badge>
+                            ) : (
+                              <Badge className={cn(
+                                "text-[10px] font-bold border",
+                                isTeamMode
+                                  ? "bg-purple-500/10 text-purple-700 border-purple-200/50 dark:border-purple-900/50"
+                                  : "bg-orange-500/10 text-orange-600 border-orange-200/50"
+                              )}>
+                                {isTeamMode ? "vs Team" : `${spotsLeft} spot${spotsLeft !== 1 ? "s" : ""} left`}
+                              </Badge>
+                            )}
+                            {isTeamMode && (
+                              <span className="text-[9px] font-bold text-purple-600 flex items-center gap-0.5">
+                                <Swords className="h-2.5 w-2.5" /> Team vs Team
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Team name if set */}
+                        {isTeamMode && p.teamName && (
+                          <div className="mb-2 px-2.5 py-1.5 bg-purple-50 dark:bg-purple-950/20 rounded-lg flex items-center gap-1.5">
+                            <Swords className="h-3 w-3 text-purple-600" />
+                            <span className="text-xs font-bold text-purple-700 dark:text-purple-400">{p.teamName}</span>
+                            <span className="text-xs text-muted-foreground">is looking for opponents</span>
+                          </div>
+                        )}
+
+                        {/* Info grid */}
+                        <div className="grid grid-cols-3 gap-2 mb-3">
+                          <div className="flex flex-col bg-muted/40 rounded-lg p-2">
+                            <Calendar className="h-3 w-3 text-primary mb-1" />
+                            <span className="text-[11px] font-bold">
+                              {p.matchDate ? format(parseISO(p.matchDate), "MMM dd") : "TBD"}
+                            </span>
+                          </div>
+                          <div className="flex flex-col bg-muted/40 rounded-lg p-2">
+                            <Clock className="h-3 w-3 text-primary mb-1" />
+                            <span className="text-[11px] font-bold">{p.matchTime || "TBD"}</span>
+                          </div>
+                          <div className="flex flex-col bg-muted/40 rounded-lg p-2">
+                            <Users className="h-3 w-3 text-primary mb-1" />
+                            <span className="text-[11px] font-bold">{p.playersJoined || 0}/{p.playersNeeded}</span>
+                          </div>
+                        </div>
+
+                        {/* Venue */}
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2.5">
+                          <MapPin className="h-3 w-3 text-primary flex-shrink-0" />
+                          <span className="truncate">{p.turfName ? `${p.turfName}, ` : ""}{p.area}</span>
+                        </div>
+
+                        {/* Progress */}
+                        <div className="h-1 bg-muted rounded-full overflow-hidden mb-3">
+                          <div
+                            className={cn("h-full rounded-full transition-all", isFull ? "bg-muted-foreground" : isTeamMode ? "bg-purple-500" : "bg-primary")}
+                            style={{ width: `${Math.min(100, ((p.playersJoined || 0) / p.playersNeeded) * 100)}%` }}
+                          />
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center text-xs text-muted-foreground gap-1">
+                            <MessageSquare className="h-3.5 w-3.5" />
+                            <span>Chat & join</span>
+                          </div>
+                          <div className={cn("flex items-center gap-1 text-xs font-bold", isFull ? "text-muted-foreground" : isTeamMode ? "text-purple-600" : "text-primary")}>
+                            {isFull ? "View" : isTeamMode
+                              ? <><Swords className="h-3.5 w-3.5" /> Challenge</>
+                              : <><UserPlus className="h-3.5 w-3.5" /> Reserve Spot</>
+                            }
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  </Link>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════
+          TAB: LIVE SCORES
+      ════════════════════════════════════ */}
+      {activeTab === "scores" && (
+        <div className="flex-1 overflow-y-auto">
+          {/* Section action bar */}
+          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border/50 px-4 py-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className={cn("h-2 w-2 rounded-full", liveMatches.length > 0 ? "bg-red-500 animate-pulse" : "bg-muted-foreground/30")} />
+              <p className="text-xs text-muted-foreground">
+                {liveMatches.length > 0 ? `${liveMatches.length} match${liveMatches.length !== 1 ? "es" : ""} live` : "No live matches"}
+              </p>
+              <span className={cn("text-[10px]", connected ? "text-green-600" : "text-muted-foreground")}>
+                {connected ? "● live" : "○ connecting"}
+              </span>
             </div>
-          ) : (
-            <div className="space-y-2">
-              {liveMatches.map(match => (
+            {isAuthenticated && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 rounded-xl gap-1.5 text-xs font-bold border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/30"
+                onClick={() => setIsScoreDialogOpen(true)}
+              >
+                <Trophy className="h-3.5 w-3.5" /> Score Live
+              </Button>
+            )}
+          </div>
+
+          <div className="p-4 space-y-3">
+            {liveMatches.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="h-16 w-16 rounded-full bg-red-50 dark:bg-red-950/20 flex items-center justify-center mx-auto mb-4">
+                  <Radio className="h-8 w-8 text-red-400" />
+                </div>
+                <h3 className="font-bold text-base">No live matches right now</h3>
+                <p className="text-muted-foreground text-sm mt-1 mb-5">Start a scorecard to broadcast your match live!</p>
+                {isAuthenticated && (
+                  <Button
+                    variant="outline"
+                    className="gap-2 rounded-xl font-bold px-6 border-red-200 text-red-600 hover:bg-red-50"
+                    onClick={() => setIsScoreDialogOpen(true)}
+                  >
+                    <Radio className="h-4 w-4" /> Start Scoring
+                  </Button>
+                )}
+              </div>
+            ) : (
+              liveMatches.map(match => (
                 <div
                   key={match.id}
-                  className="relative overflow-hidden rounded-xl border border-red-200/60 dark:border-red-900/60 bg-gradient-to-br from-red-600 to-rose-700 text-white shadow-md shadow-red-500/10"
+                  className="relative overflow-hidden rounded-2xl border border-red-200/60 dark:border-red-900/60 bg-gradient-to-br from-red-600 to-rose-700 text-white shadow-lg shadow-red-500/10"
                 >
                   {/* Venue + badge */}
-                  <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-white/10">
-                    <p className="text-[10px] font-bold uppercase tracking-wider opacity-70 truncate flex-1">{match.turfName}</p>
-                    <Badge className="bg-white/20 border-0 text-white text-[10px] font-bold flex-shrink-0">
+                  <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-white/10">
+                    <p className="text-[11px] font-bold uppercase tracking-wider opacity-70 truncate flex-1">{match.turfName}</p>
+                    <Badge className="bg-white/20 border-0 text-white text-[10px] font-bold">
                       <Radio className="h-2.5 w-2.5 mr-1 animate-pulse" /> LIVE
                     </Badge>
                   </div>
 
                   {/* Scores */}
-                  <div className="flex items-center px-3 py-3 gap-2">
+                  <div className="flex items-center px-4 py-4 gap-3">
                     <div className={cn("flex-1 text-center transition-opacity", match.battingTeam === "A" ? "opacity-100" : "opacity-55")}>
-                      <p className="text-[11px] font-bold truncate mb-0.5">{match.teamA}</p>
-                      <p className="text-2xl font-bold leading-none tabular-nums">
-                        {match.scoreA}<span className="text-sm font-normal opacity-80">/{match.wicketsA}</span>
+                      <p className="text-[12px] font-bold truncate mb-1">{match.teamA}</p>
+                      <p className="text-3xl font-bold leading-none tabular-nums">
+                        {match.scoreA}<span className="text-base font-normal opacity-80">/{match.wicketsA}</span>
                       </p>
                       {match.battingTeam === "A" && (
-                        <p className="text-[9px] font-bold text-green-300 mt-0.5 uppercase tracking-wide">● batting</p>
+                        <p className="text-[9px] font-bold text-green-300 mt-1 uppercase tracking-wide">● batting</p>
                       )}
                       {match.striker && match.battingTeam === "A" && (
                         <p className="text-[10px] opacity-70 mt-0.5">{match.striker} ●</p>
                       )}
                     </div>
-
-                    <div className="flex flex-col items-center px-2">
+                    <div className="flex flex-col items-center px-3">
                       <span className="text-xs opacity-40 font-bold">vs</span>
-                      <span className="text-[10px] opacity-60 mt-1">{match.overs}</span>
+                      <span className="text-[11px] opacity-60 mt-1 font-medium">{match.overs}</span>
                     </div>
-
                     <div className={cn("flex-1 text-center transition-opacity", match.battingTeam === "B" ? "opacity-100" : "opacity-55")}>
-                      <p className="text-[11px] font-bold truncate mb-0.5">{match.teamB}</p>
-                      <p className="text-2xl font-bold leading-none tabular-nums">
-                        {match.scoreB}<span className="text-sm font-normal opacity-80">/{match.wicketsB}</span>
+                      <p className="text-[12px] font-bold truncate mb-1">{match.teamB}</p>
+                      <p className="text-3xl font-bold leading-none tabular-nums">
+                        {match.scoreB}<span className="text-base font-normal opacity-80">/{match.wicketsB}</span>
                       </p>
                       {match.battingTeam === "B" && (
-                        <p className="text-[9px] font-bold text-green-300 mt-0.5 uppercase tracking-wide">● batting</p>
+                        <p className="text-[9px] font-bold text-green-300 mt-1 uppercase tracking-wide">● batting</p>
                       )}
                       {match.striker && match.battingTeam === "B" && (
                         <p className="text-[10px] opacity-70 mt-0.5">{match.striker} ●</p>
@@ -202,151 +429,27 @@ export default function Community() {
 
                   {/* Last 6 balls */}
                   {match.balls?.length > 0 && (
-                    <div className="flex gap-1.5 justify-center px-3 pb-3">
+                    <div className="flex gap-1.5 justify-center px-4 pb-3">
                       {match.balls.slice(-6).map((b, i) => (
-                        <span key={i} className={cn("w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm", ballColor(b.result))}>
+                        <span key={i} className={cn("w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shadow-sm", ballColor(b.result))}>
                           {b.result}
                         </span>
                       ))}
                     </div>
                   )}
 
-                  {/* Current bowler */}
                   {match.currentBowler && (
-                    <div className="px-3 pb-2 flex items-center gap-1 justify-center">
+                    <div className="pb-3 flex items-center gap-1 justify-center">
                       <span className="text-[10px] opacity-60">Bowling:</span>
                       <span className="text-[10px] font-bold opacity-80">{match.currentBowler}</span>
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════
-          SECTION 2 — FIND PLAYERS
-      ════════════════════════════════════════ */}
-      <section className="flex-1">
-        {/* Section header */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-2 bg-background sticky top-[57px] z-10 border-b border-border shadow-sm">
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-primary" />
-            <h2 className="font-bold text-sm uppercase tracking-wider">Find Players</h2>
-            {posts && posts.length > 0 && (
-              <span className="text-[10px] font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">{posts.length} open</span>
+              ))
             )}
           </div>
-          <Button
-            size="sm"
-            className="h-8 rounded-xl gap-1.5 text-xs font-bold"
-            onClick={() => setIsPostDialogOpen(true)}
-          >
-            <Plus className="h-3.5 w-3.5" /> Post Match
-          </Button>
         </div>
-
-        {/* Match posts */}
-        <div className="p-4 space-y-3">
-          {isLoading ? (
-            [1, 2, 3].map(i => <div key={i} className="h-36 rounded-xl bg-muted animate-pulse" />)
-          ) : posts?.length === 0 ? (
-            <div className="text-center py-14">
-              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                <Users className="h-8 w-8 text-primary/60" />
-              </div>
-              <h3 className="font-bold text-base">No open matches</h3>
-              <p className="text-muted-foreground text-sm mt-1 mb-5">Be the first to post and find players!</p>
-              <Button onClick={() => setIsPostDialogOpen(true)} className="gap-2 rounded-xl font-bold px-6">
-                <Plus className="h-4 w-4" /> Post a Match
-              </Button>
-            </div>
-          ) : (
-            posts.map(post => {
-              const spotsLeft = Math.max(0, post.playersNeeded - (post.playersJoined || 0));
-              const isFull = spotsLeft === 0;
-              return (
-                <Link key={post.id} href={`/community/${post.id}`} className="block group">
-                  <Card className={cn(
-                    "border shadow-sm hover:shadow-md transition-all overflow-hidden",
-                    isFull ? "border-muted opacity-70" : "hover:border-primary/40"
-                  )}>
-                    <div className="p-4">
-                      {/* Header row */}
-                      <div className="flex items-start gap-3 mb-3">
-                        <Avatar className="h-10 w-10 border-2 border-primary/10 flex-shrink-0">
-                          <AvatarImage src={(post as any).userAvatar} />
-                          <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">
-                            {(post as any).userName?.substring(0, 2).toUpperCase() || "U"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-sm leading-tight line-clamp-1 group-hover:text-primary transition-colors">{post.title}</h4>
-                          <p className="text-xs text-muted-foreground mt-0.5">by {(post as any).userName}</p>
-                        </div>
-                        <div className="flex-shrink-0 ml-1">
-                          {isFull ? (
-                            <Badge variant="secondary" className="text-[10px] font-bold">Full</Badge>
-                          ) : (
-                            <Badge className="bg-orange-500/10 text-orange-600 border-orange-200/50 dark:border-orange-900/50 text-[10px] font-bold">
-                              {spotsLeft} spot{spotsLeft !== 1 ? "s" : ""} left
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Info grid */}
-                      <div className="grid grid-cols-3 gap-2 mb-3">
-                        <div className="flex flex-col bg-muted/40 rounded-lg p-2">
-                          <Calendar className="h-3 w-3 text-primary mb-1" />
-                          <span className="text-[11px] font-bold text-foreground">
-                            {post.matchDate ? format(parseISO(post.matchDate), "MMM dd") : "TBD"}
-                          </span>
-                        </div>
-                        <div className="flex flex-col bg-muted/40 rounded-lg p-2">
-                          <Clock className="h-3 w-3 text-primary mb-1" />
-                          <span className="text-[11px] font-bold text-foreground">{post.matchTime || "TBD"}</span>
-                        </div>
-                        <div className="flex flex-col bg-muted/40 rounded-lg p-2">
-                          <Users className="h-3 w-3 text-primary mb-1" />
-                          <span className="text-[11px] font-bold text-foreground">{post.playersJoined || 0}/{post.playersNeeded}</span>
-                        </div>
-                      </div>
-
-                      {/* Venue */}
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
-                        <MapPin className="h-3 w-3 text-primary flex-shrink-0" />
-                        <span className="truncate">{post.turfName ? `${post.turfName}, ` : ""}{post.area}</span>
-                      </div>
-
-                      {/* Players progress bar */}
-                      <div className="h-1 bg-muted rounded-full overflow-hidden mb-3">
-                        <div
-                          className={cn("h-full rounded-full transition-all", isFull ? "bg-muted-foreground" : "bg-primary")}
-                          style={{ width: `${Math.min(100, ((post.playersJoined || 0) / post.playersNeeded) * 100)}%` }}
-                        />
-                      </div>
-
-                      {/* Footer */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center text-xs text-muted-foreground gap-1">
-                          <MessageSquare className="h-3.5 w-3.5" />
-                          <span>Chat & join</span>
-                        </div>
-                        <div className={cn("flex items-center gap-1 text-xs font-bold", isFull ? "text-muted-foreground" : "text-primary")}>
-                          {isFull ? "View" : <><UserPlus className="h-3.5 w-3.5" /> Reserve Spot</>}
-                          <ChevronRight className="h-3.5 w-3.5" />
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                </Link>
-              );
-            })
-          )}
-        </div>
-      </section>
+      )}
 
       {/* ─── Post Match Dialog ─── */}
       <Dialog open={isPostDialogOpen} onOpenChange={setIsPostDialogOpen}>
@@ -355,14 +458,64 @@ export default function Community() {
             <DialogTitle>Post a Match</DialogTitle>
           </DialogHeader>
           <form onSubmit={postForm.handleSubmit(onPostSubmit)} className="space-y-4 pt-2">
+
+            {/* Looking For selector */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">What are you looking for?</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => postForm.setValue("lookingFor", "team")}
+                  className={cn(
+                    "flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-left",
+                    watchLookingFor === "team"
+                      ? "border-purple-500 bg-purple-50 dark:bg-purple-950/20"
+                      : "border-border hover:border-purple-300"
+                  )}
+                >
+                  <Swords className={cn("h-6 w-6", watchLookingFor === "team" ? "text-purple-600" : "text-muted-foreground")} />
+                  <div>
+                    <p className={cn("text-xs font-bold", watchLookingFor === "team" ? "text-purple-700 dark:text-purple-400" : "")}>Opponent Team</p>
+                    <p className="text-[10px] text-muted-foreground">My team is ready, need rivals</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => postForm.setValue("lookingFor", "individual")}
+                  className={cn(
+                    "flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-left",
+                    watchLookingFor === "individual"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/40"
+                  )}
+                >
+                  <UserPlus className={cn("h-6 w-6", watchLookingFor === "individual" ? "text-primary" : "text-muted-foreground")} />
+                  <div>
+                    <p className={cn("text-xs font-bold", watchLookingFor === "individual" ? "text-primary" : "")}>Individual Players</p>
+                    <p className="text-[10px] text-muted-foreground">Fill spots one by one</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             <div>
               <label className="text-sm font-medium">Post Title</label>
-              <Input placeholder="Need 2 players for Saturday match" className="mt-1" {...postForm.register("title")} />
+              <Input placeholder="5-a-side cricket, Gachibowli Saturday" className="mt-1" {...postForm.register("title")} />
               {postForm.formState.errors.title && <p className="text-xs text-destructive mt-1">{postForm.formState.errors.title.message}</p>}
             </div>
+
+            {watchLookingFor === "team" && (
+              <div>
+                <label className="text-sm font-medium">Your Team Name</label>
+                <Input placeholder="Banjara Lions" className="mt-1" {...postForm.register("teamName")} />
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-medium">Players Needed</label>
+                <label className="text-sm font-medium">
+                  {watchLookingFor === "team" ? "Team Size (per side)" : "Players Needed"}
+                </label>
                 <Input type="number" min="1" className="mt-1" {...postForm.register("playersNeeded")} />
               </div>
               <div>
@@ -371,6 +524,7 @@ export default function Community() {
                 {postForm.formState.errors.area && <p className="text-xs text-destructive mt-1">{postForm.formState.errors.area.message}</p>}
               </div>
             </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium">Date</label>
@@ -381,6 +535,7 @@ export default function Community() {
                 <Input type="time" className="mt-1" {...postForm.register("matchTime")} />
               </div>
             </div>
+
             <div>
               <label className="text-sm font-medium">Turf Name (optional)</label>
               <Input placeholder="If already booked..." className="mt-1" {...postForm.register("turfName")} />
