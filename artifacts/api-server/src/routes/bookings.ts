@@ -5,7 +5,7 @@ import { authenticate, AuthRequest } from "../middlewares/auth";
 import { broadcastSlotUpdate } from "../lib/live-scores";
 import crypto from "crypto";
 
-const isValidId = (id: string | string[]) => Types.ObjectId.isValid(String(id));
+const isValidId = (id: string) => Types.ObjectId.isValid(id);
 
 const router = Router();
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || "";

@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Home, MapPin, Users, Calendar, ShoppingBag, User } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useGetCart, getGetCartQueryKey } from "@workspace/api-client-react";
+import { useGetCart } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 
 export function BottomNav() {
@@ -11,8 +11,7 @@ export function BottomNav() {
   // Only fetch cart if authenticated
   const { data: cart } = useGetCart({
     query: {
-      queryKey: getGetCartQueryKey(),
-      enabled: isAuthenticated,
+      enabled: isAuthenticated
     }
   });
 

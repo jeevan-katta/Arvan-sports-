@@ -7,9 +7,6 @@ import {
   useSendPostMessage,
   useJoinPost,
   useGetMe,
-  getGetMeQueryKey,
-  getGetPostQueryKey,
-  getGetPostMessagesQueryKey,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +20,7 @@ import {
   MessageSquare, Phone, CheckCircle2, UserPlus, Swords,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { getGetPostMessagesQueryKey, getGetPostQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -39,9 +37,9 @@ export default function PostDetail() {
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [opponentTeamName, setOpponentTeamName] = useState("");
 
-  const { data: user } = useGetMe({ query: { queryKey: getGetMeQueryKey(), retry: false } });
-  const { data: post, isLoading: isLoadingPost } = useGetPost(postId, { query: { queryKey: getGetPostQueryKey(postId), enabled: !!postId } });
-  const { data: messages, isLoading: isLoadingMessages } = useGetPostMessages(postId, { query: { queryKey: getGetPostMessagesQueryKey(postId), enabled: !!postId } });
+  const { data: user } = useGetMe({ query: { retry: false } });
+  const { data: post, isLoading: isLoadingPost } = useGetPost(postId, { query: { enabled: !!postId } });
+  const { data: messages, isLoading: isLoadingMessages } = useGetPostMessages(postId, { query: { enabled: !!postId } });
 
   const joinPostMutation = useJoinPost();
   const sendMessageMutation = useSendPostMessage();
@@ -54,7 +52,7 @@ export default function PostDetail() {
     if (!user) {
       toast({ title: "Login required", description: "Please login to join matches" }); return;
     }
-    joinPostMutation.mutate({ id: postId }, {
+    joinPostMutation.mutate({ id: postId, data: { teamName } as any }, {
       onSuccess: () => {
         toast({ title: isTeamMode ? "Challenge accepted!" : "Spot reserved!", description: isTeamMode ? "You've challenged this team." : "You've joined this match." });
         queryClient.invalidateQueries({ queryKey: getGetPostQueryKey(postId) });
@@ -93,8 +91,8 @@ export default function PostDetail() {
   const isOwner = user?.id === post.userId;
   const joinedUsers: any[] = (post as any).joinedUsers || [];
   const hasJoined = joinedUsers.some((u: any) => u.id === user?.id);
-  const isFull = (post.playersJoined ?? 0) >= (post.playersNeeded ?? 0);
-  const spotsLeft = Math.max(0, (post.playersNeeded ?? 0) - (post.playersJoined ?? 0));
+  const isFull = post.playersJoined >= post.playersNeeded;
+  const spotsLeft = Math.max(0, post.playersNeeded - (post.playersJoined || 0));
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -217,13 +215,13 @@ export default function PostDetail() {
           <div className="p-4 border-b border-border/60">
             <div className="flex items-center justify-between mb-3">
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                {isTeamMode ? "Opponent Team" : `Players Joined (${post.playersJoined ?? 0}/${post.playersNeeded ?? 0})`}
+                {isTeamMode ? "Opponent Team" : `Players Joined (${post.playersJoined || 0}/${post.playersNeeded})`}
               </p>
               {!isTeamMode && (
                 <div className="h-1.5 bg-muted rounded-full w-24 overflow-hidden">
                   <div
                     className="h-full bg-primary rounded-full transition-all"
-                    style={{ width: `${Math.min(100, ((post.playersJoined ?? 0) / (post.playersNeeded ?? 1)) * 100)}%` }}
+                    style={{ width: `${Math.min(100, ((post.playersJoined || 0) / post.playersNeeded) * 100)}%` }}
                   />
                 </div>
               )}

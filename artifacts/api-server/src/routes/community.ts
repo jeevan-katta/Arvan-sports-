@@ -4,7 +4,7 @@ import { Post, PostJoin, Message, User } from "@workspace/db";
 import { authenticate, AuthRequest } from "../middlewares/auth";
 import { broadcast } from "../lib/live-scores";
 
-const isValidId = (id: string | string[]) => Types.ObjectId.isValid(String(id));
+const isValidId = (id: string) => Types.ObjectId.isValid(id);
 
 const router = Router();
 

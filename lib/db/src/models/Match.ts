@@ -59,7 +59,7 @@ const MatchSchema = new Schema<IMatch>({
   wicketsB: { type: Number, default: 0 },
   overs: String,
   battingTeam: { type: String, default: "A" },
-  balls: { type: Schema.Types.Mixed, default: [] },
+  balls: { type: Array, default: [] },
   maxOvers: { type: Number, default: 8 },
   status: { type: String, default: "live" },
   teamAPlayers: { type: [PlayerSchema], default: [] },

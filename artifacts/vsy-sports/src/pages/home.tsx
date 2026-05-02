@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Search, MapPin, Star, ArrowRight, Users, Trophy, ShoppingBag, Navigation, Loader2, AlertCircle } from "lucide-react";
-import { useListTurfs, useListEvents, getListTurfsQueryKey, getListEventsQueryKey } from "@workspace/api-client-react";
+import { useListTurfs, useListEvents } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useLocation } from "wouter";
@@ -12,21 +12,17 @@ export default function Home() {
   const [, navigate] = useLocation();
   const { lat, lng, city, loading: locLoading, error: locError, request: requestLocation } = useGeolocation(true);
 
-  const nearbyParams = lat && lng ? { lat, lng } : {};
   const { data: nearbyTurfs, isLoading: loadingNearby } = useListTurfs(
-    nearbyParams,
-    { query: { queryKey: getListTurfsQueryKey(nearbyParams), enabled: !!(lat && lng) } }
+    lat && lng ? { lat: String(lat), lng: String(lng) } : {},
+    { query: { enabled: !!(lat && lng) } }
   );
 
   const { data: topTurfs, isLoading: loadingTop } = useListTurfs(
     {},
-    { query: { queryKey: getListTurfsQueryKey(), enabled: !(lat && lng) } }
+    { query: { enabled: !(lat && lng) } }
   );
 
-  const eventsParams = { featured: true };
-  const { data: events } = useListEvents(eventsParams, {
-    query: { queryKey: getListEventsQueryKey(eventsParams) }
-  });
+  const { data: events } = useListEvents({ featured: true });
 
   const features = [
     { name: "Book Venue", icon: MapPin, color: "bg-blue-500", href: "/turfs" },

@@ -16,8 +16,8 @@ export default function Turfs() {
   const { lat, lng, city, loading: locLoading, error: locError, request: requestLocation, permission } = useGeolocation(false);
 
   const { data: turfs, isLoading } = useListTurfs({
-    ...(search ? { search } : {}),
-    ...(sortByDistance && lat && lng ? { lat, lng } : {}),
+    search: search || undefined,
+    ...(sortByDistance && lat && lng ? { lat: String(lat), lng: String(lng) } : {}),
   });
 
   function handleDistanceToggle() {

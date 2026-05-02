@@ -18,7 +18,7 @@ export default function EventDetail() {
   const queryClient = useQueryClient();
 
   const { data: event, isLoading } = useGetEvent(eventId, {
-    query: { queryKey: getGetEventQueryKey(eventId), enabled: !!eventId }
+    query: { enabled: !!eventId }
   });
 
   const joinMutation = useJoinEvent();

@@ -3,7 +3,7 @@ import { Types } from "mongoose";
 import { Turf, TimeSlot, Review, Booking } from "@workspace/db";
 import { authenticate, requireRole, AuthRequest } from "../middlewares/auth";
 
-function isValidId(id: string | string[]) { return Types.ObjectId.isValid(String(id)); }
+function isValidId(id: string) { return Types.ObjectId.isValid(id); }
 
 const router = Router();
 
@@ -119,7 +119,7 @@ router.get("/turfs/:id/slots", async (req: Request, res: Response) => {
     if (!turf) { res.status(404).json({ error: "Turf not found" }); return; }
 
     // Auto-seed 24 hourly slots if fewer exist
-    const slots = await ensureDailySlots(String(req.params.id));
+    const slots = await ensureDailySlots(req.params.id);
 
     const now = new Date();
     const bookedDocs = date ? await Booking.find({ turfId: req.params.id, date }).lean() : [];

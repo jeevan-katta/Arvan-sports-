@@ -19,7 +19,7 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all",      label: "All" },
 ];
 
-function to12hr(time: string | undefined): string {
+function to12hr(time: string): string {
   if (!time) return "";
   const [hStr, mStr] = time.split(":");
   const h = parseInt(hStr, 10);

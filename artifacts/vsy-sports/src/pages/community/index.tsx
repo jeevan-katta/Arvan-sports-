@@ -225,7 +225,7 @@ export default function Community() {
                 </Button>
               </div>
             ) : (
-              (posts ?? []).map(post => {
+              posts.map(post => {
                 const p = post as any;
                 const isTeamMode = p.lookingFor === "team";
                 const spotsLeft = Math.max(0, p.playersNeeded - (p.playersJoined || 0));

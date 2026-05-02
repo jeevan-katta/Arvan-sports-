@@ -121,7 +121,7 @@ export default function Profile() {
                   <p className="text-xs text-muted-foreground">{(user as any).phone}</p>
                 )}
                 <Badge variant="secondary" className="mt-1 text-[10px] font-bold uppercase tracking-wider">
-                  {(user.role ?? "user").replace("_", " ")}
+                  {user.role.replace("_", " ")}
                 </Badge>
               </>
             )}

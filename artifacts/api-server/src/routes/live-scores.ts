@@ -17,7 +17,7 @@ router.get("/live-scores/mine", authenticate, (req: AuthRequest, res: Response) 
 });
 
 router.get("/live-scores/:id", (req: Request, res: Response) => {
-  const match = getMatch(String(req.params.id));
+  const match = getMatch(req.params.id);
   if (!match) { res.status(404).json({ error: "Match not found" }); return; }
   res.json(match);
 });
@@ -54,20 +54,20 @@ router.post("/live-scores", authenticate, async (req: AuthRequest, res: Response
 });
 
 router.put("/live-scores/:id", authenticate, (req: AuthRequest, res: Response) => {
-  const updated = updateMatch(String(req.params.id), req.body);
+  const updated = updateMatch(req.params.id, req.body);
   if (!updated) { res.status(404).json({ error: "Match not found" }); return; }
   res.json(updated);
 });
 
 // Set/update team rosters
 router.put("/live-scores/:id/players", authenticate, (req: AuthRequest, res: Response) => {
-  const match = getMatch(String(req.params.id));
+  const match = getMatch(req.params.id);
   if (!match) { res.status(404).json({ error: "Match not found" }); return; }
   if (match.createdBy !== req.user!.id && req.user!.role !== "admin") {
     res.status(403).json({ error: "Not your match" }); return;
   }
   const { teamAPlayers, teamBPlayers } = req.body;
-  const updated = updateMatch(String(req.params.id), {
+  const updated = updateMatch(req.params.id, {
     ...(teamAPlayers !== undefined && { teamAPlayers }),
     ...(teamBPlayers !== undefined && { teamBPlayers }),
   });
@@ -76,7 +76,7 @@ router.put("/live-scores/:id/players", authenticate, (req: AuthRequest, res: Res
 
 // Set current striker / non-striker / bowler
 router.put("/live-scores/:id/current", authenticate, (req: AuthRequest, res: Response) => {
-  const match = getMatch(String(req.params.id));
+  const match = getMatch(req.params.id);
   if (!match) { res.status(404).json({ error: "Match not found" }); return; }
   if (match.createdBy !== req.user!.id && req.user!.role !== "admin") {
     res.status(403).json({ error: "Not your match" }); return;
@@ -87,7 +87,7 @@ router.put("/live-scores/:id/current", authenticate, (req: AuthRequest, res: Res
   if (currentBowler && !bowlers.find(b => b.name === currentBowler)) {
     bowlers = [...bowlers, { name: currentBowler, legalBalls: 0, runs: 0, wickets: 0 }];
   }
-  const updated = updateMatch(String(req.params.id), {
+  const updated = updateMatch(req.params.id, {
     ...(striker !== undefined && { striker }),
     ...(nonStriker !== undefined && { nonStriker }),
     ...(currentBowler !== undefined && { currentBowler, bowlers }),
@@ -98,13 +98,13 @@ router.put("/live-scores/:id/current", authenticate, (req: AuthRequest, res: Res
 router.post("/live-scores/:id/ball", authenticate, (req: AuthRequest, res: Response) => {
   const { result, team } = req.body;
   if (!result) { res.status(400).json({ error: "result required (0/1/2/3/4/6/W/NB/WD)" }); return; }
-  const updated = addBall(String(req.params.id), String(result), team);
+  const updated = addBall(req.params.id, String(result), team);
   if (!updated) { res.status(404).json({ error: "Match not found" }); return; }
   res.json(updated);
 });
 
 router.delete("/live-scores/:id", authenticate, (req: AuthRequest, res: Response) => {
-  const ok = deleteMatch(String(req.params.id));
+  const ok = deleteMatch(req.params.id);
   if (!ok) { res.status(404).json({ error: "Match not found" }); return; }
   res.json({ success: true });
 });

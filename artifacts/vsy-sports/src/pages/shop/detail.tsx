@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, Link } from "wouter";
-import { useGetProduct, useAddToCart, getGetProductQueryKey } from "@workspace/api-client-react";
+import { useGetProduct, useAddToCart } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ export default function ProductDetail() {
   const [activeImage, setActiveImage] = useState(0);
 
   const { data: product, isLoading } = useGetProduct(productId, {
-    query: { queryKey: getGetProductQueryKey(productId), enabled: !!productId }
+    query: { enabled: !!productId }
   });
 
   const addToCartMutation = useAddToCart();
