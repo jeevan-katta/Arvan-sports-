@@ -1,16 +1,13 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { User } from "@workspace/db";
 import { authenticate, signToken, AuthRequest } from "../middlewares/auth";
-import { RegisterBody, LoginBody } from "@workspace/api-zod";
-import { Response, Request } from "express";
 
 const router = Router();
 
-function userResponse(user: typeof usersTable.$inferSelect) {
+function userResponse(user: any) {
   return {
-    id: user.id,
+    id: user._id.toString(),
     name: user.name,
     email: user.email,
     role: user.role,
@@ -23,22 +20,13 @@ function userResponse(user: typeof usersTable.$inferSelect) {
 
 router.post("/auth/register", async (req: Request, res: Response) => {
   try {
-    const parsed = RegisterBody.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: "Invalid input" });
-      return;
-    }
-    const { name, email, password, role } = parsed.data;
-    const existing = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
-    if (existing.length > 0) {
-      res.status(400).json({ error: "Email already in use" });
-      return;
-    }
+    const { name, email, password, role } = req.body;
+    if (!name || !email || !password) { res.status(400).json({ error: "name, email, password required" }); return; }
+    const existing = await User.findOne({ email });
+    if (existing) { res.status(400).json({ error: "Email already in use" }); return; }
     const passwordHash = await bcrypt.hash(password, 12);
-    const [user] = await db.insert(usersTable).values({
-      name, email, passwordHash, role: role || "user",
-    }).returning();
-    const token = signToken({ id: user.id, role: user.role, email: user.email });
+    const user = await User.create({ name, email, passwordHash, role: role || "user" });
+    const token = signToken({ id: user._id.toString(), role: user.role, email: user.email });
     res.status(201).json({ token, user: userResponse(user) });
   } catch (err) {
     req.log?.error(err);
@@ -48,27 +36,14 @@ router.post("/auth/register", async (req: Request, res: Response) => {
 
 router.post("/auth/login", async (req: Request, res: Response) => {
   try {
-    const parsed = LoginBody.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: "Invalid input" });
-      return;
-    }
-    const { email, password } = parsed.data;
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
-    if (!user) {
-      res.status(401).json({ error: "Invalid credentials" });
-      return;
-    }
-    if (user.blocked) {
-      res.status(403).json({ error: "Account is blocked" });
-      return;
-    }
+    const { email, password } = req.body;
+    if (!email || !password) { res.status(400).json({ error: "email and password required" }); return; }
+    const user = await User.findOne({ email });
+    if (!user) { res.status(401).json({ error: "Invalid credentials" }); return; }
+    if (user.blocked) { res.status(403).json({ error: "Account is blocked" }); return; }
     const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) {
-      res.status(401).json({ error: "Invalid credentials" });
-      return;
-    }
-    const token = signToken({ id: user.id, role: user.role, email: user.email });
+    if (!valid) { res.status(401).json({ error: "Invalid credentials" }); return; }
+    const token = signToken({ id: user._id.toString(), role: user.role, email: user.email });
     res.json({ token, user: userResponse(user) });
   } catch (err) {
     req.log?.error(err);
@@ -78,11 +53,8 @@ router.post("/auth/login", async (req: Request, res: Response) => {
 
 router.get("/auth/me", authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.id)).limit(1);
-    if (!user) {
-      res.status(404).json({ error: "User not found" });
-      return;
-    }
+    const user = await User.findById(req.user!.id);
+    if (!user) { res.status(404).json({ error: "User not found" }); return; }
     res.json(userResponse(user));
   } catch (err) {
     req.log?.error(err);

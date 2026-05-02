@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 const JWT_SECRET = process.env.SESSION_SECRET || "vsy-sports-secret-2024";
 
 export interface AuthRequest extends Request {
-  user?: { id: number; role: string; email: string };
+  user?: { id: string; role: string; email: string };
 }
 
 export function authenticate(req: AuthRequest, res: Response, next: NextFunction) {
@@ -15,7 +15,7 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
   }
   const token = authHeader.slice(7);
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: number; role: string; email: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; role: string; email: string };
     req.user = decoded;
     next();
   } catch {
@@ -37,6 +37,6 @@ export function requireRole(...roles: string[]) {
   };
 }
 
-export function signToken(payload: { id: number; role: string; email: string }) {
+export function signToken(payload: { id: string; role: string; email: string }) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 }

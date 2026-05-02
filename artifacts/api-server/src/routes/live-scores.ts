@@ -1,7 +1,6 @@
 import { Router, Request, Response } from "express";
 import { authenticate, AuthRequest } from "../middlewares/auth";
-import { db, bookingsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { Booking } from "@workspace/db";
 import {
   getAllMatches, getMatch, createMatch, updateMatch, deleteMatch,
 } from "../lib/live-scores";
@@ -24,32 +23,19 @@ router.post("/live-scores", authenticate, async (req: AuthRequest, res: Response
     if (!turfId || !turfName || !teamA || !teamB) {
       res.status(400).json({ error: "turfId, turfName, teamA, teamB are required" }); return;
     }
-
     const userRole = req.user!.role;
     const userId = req.user!.id;
-
     if (userRole !== "admin" && userRole !== "turf_owner") {
       if (!bookingId) {
-        res.status(403).json({ error: "Only admins, turf owners, or users with a confirmed booking can post live scores" });
-        return;
+        res.status(403).json({ error: "Only admins, turf owners, or users with a confirmed booking can post live scores" }); return;
       }
       const today = new Date().toISOString().split("T")[0];
-      const [booking] = await db.select().from(bookingsTable).where(
-        and(
-          eq(bookingsTable.id, parseInt(bookingId)),
-          eq(bookingsTable.userId, userId),
-          eq(bookingsTable.status, "confirmed"),
-          eq(bookingsTable.turfId, parseInt(turfId)),
-          eq(bookingsTable.date, today)
-        )
-      );
+      const booking = await Booking.findOne({ _id: bookingId, userId, status: "confirmed", turfId, date: today }).lean();
       if (!booking) {
-        res.status(403).json({ error: "No confirmed booking found for today at this turf" });
-        return;
+        res.status(403).json({ error: "No confirmed booking found for today at this turf" }); return;
       }
     }
-
-    const match = createMatch({ turfId: parseInt(turfId), turfName, teamA, teamB, scoreA: 0, scoreB: 0, overs: "0.0", status: "live" });
+    const match = createMatch({ turfId, turfName, teamA, teamB, scoreA: 0, scoreB: 0, overs: "0.0", status: "live" });
     res.status(201).json(match);
   } catch (err) {
     req.log?.error(err);
