@@ -172,7 +172,24 @@ router.get("/turfs/:id/slots", async (req: Request, res: Response) => {
     const bookedSlots = date ? await db.select().from(bookingsTable).where(
       and(eq(bookingsTable.turfId, turfId), eq(bookingsTable.date, date))
     ) : [];
-    const bookedSlotIds = new Set(bookedSlots.filter(b => b.status !== "cancelled").map(b => b.slotId));
+
+    const now = new Date();
+    // A slot is blocked only if: confirmed, OR pending within the 10-min reservation window
+    const bookedSlotIds = new Set(
+      bookedSlots
+        .filter(b => {
+          if (b.status === "confirmed") return true;
+          if (b.status === "pending" && b.expiresAt && new Date(b.expiresAt) > now) return true;
+          return false;
+        })
+        .flatMap(b => {
+          try {
+            return b.slotIds ? JSON.parse(b.slotIds) : [b.slotId];
+          } catch {
+            return [b.slotId];
+          }
+        })
+    );
 
     res.json(slots.map(s => ({
       id: s.id,
