@@ -20,13 +20,14 @@ function userResponse(user: any) {
 
 router.post("/auth/register", async (req: Request, res: Response) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, phone, role } = req.body;
     if (!name || !email || !password) { res.status(400).json({ error: "name, email, password required" }); return; }
+    if (!phone) { res.status(400).json({ error: "Mobile number is required" }); return; }
     const existing = await User.findOne({ email });
     if (existing) { res.status(400).json({ error: "Email already in use" }); return; }
     const passwordHash = await bcrypt.hash(password, 12);
     const safeRole = (role === "user") ? "user" : "user";
-    const user = await User.create({ name, email, passwordHash, role: safeRole });
+    const user = await User.create({ name, email, passwordHash, phone, role: safeRole });
     const token = signToken({ id: user._id.toString(), role: user.role, email: user.email });
     res.status(201).json({ token, user: userResponse(user) });
   } catch (err) {

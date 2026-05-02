@@ -14,6 +14,10 @@ import { Zap } from "lucide-react";
 const registerSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
   email: z.string().email({ message: "Please enter a valid email address" }),
+  phone: z.string()
+    .min(10, { message: "Enter a valid 10-digit mobile number" })
+    .max(13, { message: "Mobile number too long" })
+    .regex(/^[0-9+\-\s]+$/, { message: "Only digits, +, - allowed" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
 });
 
@@ -32,6 +36,7 @@ export default function Register() {
     defaultValues: {
       name: "",
       email: "",
+      phone: "",
       password: "",
     },
   });
@@ -94,6 +99,29 @@ export default function Register() {
                   <FormLabel>Email</FormLabel>
                   <FormControl>
                     <Input placeholder="name@example.com" type="email" autoCapitalize="none" autoCorrect="off" disabled={isLoading} {...field} className="h-12 bg-muted/50 border-transparent focus-visible:ring-primary/50" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Mobile Number <span className="text-destructive">*</span>
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="+91 9876543210"
+                      type="tel"
+                      inputMode="numeric"
+                      disabled={isLoading}
+                      {...field}
+                      className="h-12 bg-muted/50 border-transparent focus-visible:ring-primary/50"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

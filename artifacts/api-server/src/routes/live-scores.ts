@@ -19,24 +19,25 @@ router.get("/live-scores/:id", (req: Request, res: Response) => {
 
 router.post("/live-scores", authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { turfId, turfName, teamA, teamB, bookingId } = req.body;
-    if (!turfId || !turfName || !teamA || !teamB) {
-      res.status(400).json({ error: "turfId, turfName, teamA, teamB are required" }); return;
-    }
-    const userRole = req.user!.role;
-    const userId = req.user!.id;
-    if (userRole !== "admin" && userRole !== "turf_owner") {
-      if (!bookingId) {
-        res.status(403).json({ error: "Only admins, turf owners, or users with a confirmed booking can post live scores" }); return;
-      }
-      const today = new Date().toISOString().split("T")[0];
-      const booking = await Booking.findOne({ _id: bookingId, userId, status: "confirmed", turfId, date: today }).lean();
-      if (!booking) {
-        res.status(403).json({ error: "No confirmed booking found for today at this turf" }); return;
-      }
+    const { turfId, turfName, teamA, teamB } = req.body;
+    if (!turfName || !teamA || !teamB) {
+      res.status(400).json({ error: "turfName, teamA, teamB are required" }); return;
     }
     const { battingTeam = "A", maxOvers = 8 } = req.body;
-    const match = createMatch({ turfId: String(turfId), turfName, teamA, teamB, scoreA: 0, scoreB: 0, overs: `0.0 / ${maxOvers}`, battingTeam, maxOvers, status: "live" });
+    const resolvedTurfId = turfId ? String(turfId) : `community_${req.user!.id}`;
+    const match = createMatch({
+      turfId: resolvedTurfId,
+      turfName,
+      teamA,
+      teamB,
+      scoreA: 0,
+      scoreB: 0,
+      overs: `0.0 / ${maxOvers}`,
+      battingTeam,
+      maxOvers,
+      status: "live",
+      createdBy: req.user!.id,
+    });
     res.status(201).json(match);
   } catch (err) {
     req.log?.error(err);

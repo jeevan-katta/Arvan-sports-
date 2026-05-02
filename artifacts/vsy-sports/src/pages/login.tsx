@@ -64,8 +64,8 @@ export default function Login() {
   };
 
   const fillAdminCredentials = () => {
-    form.setValue("email", "admin@vsy.com");
-    form.setValue("password", "admin123");
+    form.setValue("email", "admin@vsysports.com");
+    form.setValue("password", "Admin@123");
   };
 
   return (
