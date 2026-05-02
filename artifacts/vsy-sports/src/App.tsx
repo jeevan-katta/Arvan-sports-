@@ -73,60 +73,97 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
 
-      {/* Owner Routes */}
-      <Route path="/owner*">
-        <OwnerLayout>
-          <Switch>
-            <Route path="/owner" component={() => <OwnerRoute component={OwnerDashboard} />} />
-            <Route path="/owner/turfs" component={() => <OwnerRoute component={OwnerTurfs} />} />
-            <Route path="/owner/bookings" component={() => <OwnerRoute component={OwnerBookings} />} />
-            <Route path="/owner/revenue" component={() => <OwnerRoute component={OwnerRevenue} />} />
-            <Route component={NotFound} />
-          </Switch>
-        </OwnerLayout>
+      {/* ── Owner Routes (flat — no nested Switch inside wildcard) ── */}
+      <Route path="/owner">
+        <OwnerLayout><OwnerRoute component={OwnerDashboard} /></OwnerLayout>
+      </Route>
+      <Route path="/owner/turfs">
+        <OwnerLayout><OwnerRoute component={OwnerTurfs} /></OwnerLayout>
+      </Route>
+      <Route path="/owner/bookings">
+        <OwnerLayout><OwnerRoute component={OwnerBookings} /></OwnerLayout>
+      </Route>
+      <Route path="/owner/revenue">
+        <OwnerLayout><OwnerRoute component={OwnerRevenue} /></OwnerLayout>
       </Route>
 
-      {/* Admin Routes */}
-      <Route path="/admin*">
-        <AdminLayout>
-          <Switch>
-            <Route path="/admin" component={() => <AdminRoute component={AdminDashboard} />} />
-            <Route path="/admin/users" component={() => <AdminRoute component={AdminUsers} />} />
-            <Route path="/admin/turfs" component={() => <AdminRoute component={AdminTurfs} />} />
-            <Route path="/admin/events" component={() => <AdminRoute component={AdminEvents} />} />
-            <Route path="/admin/shop" component={() => <AdminRoute component={AdminShop} />} />
-            <Route path="/admin/owners" component={() => <AdminRoute component={AdminOwners} />} />
-            <Route path="/admin/bookings" component={() => <AdminRoute component={AdminBookings} />} />
-            <Route path="/admin/payout" component={() => <AdminRoute component={AdminPayout} />} />
-            <Route component={NotFound} />
-          </Switch>
-        </AdminLayout>
+      {/* ── Admin Routes (flat — no nested Switch inside wildcard) ── */}
+      <Route path="/admin">
+        <AdminLayout><AdminRoute component={AdminDashboard} /></AdminLayout>
+      </Route>
+      <Route path="/admin/owners">
+        <AdminLayout><AdminRoute component={AdminOwners} /></AdminLayout>
+      </Route>
+      <Route path="/admin/users">
+        <AdminLayout><AdminRoute component={AdminUsers} /></AdminLayout>
+      </Route>
+      <Route path="/admin/payout">
+        <AdminLayout><AdminRoute component={AdminPayout} /></AdminLayout>
+      </Route>
+      <Route path="/admin/shop">
+        <AdminLayout><AdminRoute component={AdminShop} /></AdminLayout>
+      </Route>
+      <Route path="/admin/turfs">
+        <AdminLayout><AdminRoute component={AdminTurfs} /></AdminLayout>
+      </Route>
+      <Route path="/admin/events">
+        <AdminLayout><AdminRoute component={AdminEvents} /></AdminLayout>
+      </Route>
+      <Route path="/admin/bookings">
+        <AdminLayout><AdminRoute component={AdminBookings} /></AdminLayout>
       </Route>
 
-      {/* Main App Routes */}
-      <Route path="*">
-        <MainLayout>
-          <Switch>
-            <Route path="/" component={Home} />
-            <Route path="/turfs" component={Turfs} />
-            <Route path="/turfs/:id" component={TurfDetail} />
-            <Route path="/booking/:id" component={BookingDetail} />
-            <Route path="/bookings" component={Bookings} />
-            <Route path="/community" component={Community} />
-            <Route path="/community/:id" component={PostDetail} />
-            <Route path="/events" component={Events} />
-            <Route path="/events/:id" component={EventDetail} />
-            <Route path="/shop" component={Shop} />
-            <Route path="/shop/:id" component={ProductDetail} />
-            <Route path="/cart" component={Cart} />
-            <Route path="/checkout" component={Checkout} />
-            <Route path="/orders" component={Orders} />
-            <Route path="/profile" component={Profile} />
-            <Route path="/profile/match/:id" component={MatchManager} />
-            <Route component={NotFound} />
-          </Switch>
-        </MainLayout>
+      {/* ── Main App Routes ── */}
+      <Route path="/">
+        <MainLayout><Home /></MainLayout>
       </Route>
+      <Route path="/turfs">
+        <MainLayout><Turfs /></MainLayout>
+      </Route>
+      <Route path="/turfs/:id">
+        <MainLayout><TurfDetail /></MainLayout>
+      </Route>
+      <Route path="/bookings">
+        <MainLayout><Bookings /></MainLayout>
+      </Route>
+      <Route path="/booking/:id">
+        <MainLayout><BookingDetail /></MainLayout>
+      </Route>
+      <Route path="/community">
+        <MainLayout><Community /></MainLayout>
+      </Route>
+      <Route path="/community/:id">
+        <MainLayout><PostDetail /></MainLayout>
+      </Route>
+      <Route path="/events">
+        <MainLayout><Events /></MainLayout>
+      </Route>
+      <Route path="/events/:id">
+        <MainLayout><EventDetail /></MainLayout>
+      </Route>
+      <Route path="/shop">
+        <MainLayout><Shop /></MainLayout>
+      </Route>
+      <Route path="/shop/:id">
+        <MainLayout><ProductDetail /></MainLayout>
+      </Route>
+      <Route path="/cart">
+        <MainLayout><Cart /></MainLayout>
+      </Route>
+      <Route path="/checkout">
+        <MainLayout><Checkout /></MainLayout>
+      </Route>
+      <Route path="/orders">
+        <MainLayout><Orders /></MainLayout>
+      </Route>
+      <Route path="/profile">
+        <MainLayout><Profile /></MainLayout>
+      </Route>
+      <Route path="/profile/match/:id">
+        <MainLayout><MatchManager /></MainLayout>
+      </Route>
+
+      <Route component={NotFound} />
     </Switch>
   );
 }

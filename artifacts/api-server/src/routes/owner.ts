@@ -71,4 +71,42 @@ router.get("/owner/revenue", authenticate, requireRole("turf_owner", "admin"), a
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch revenue" }); }
 });
 
+router.get("/owner/payout-status", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const owner = await User.findById(req.user!.id).lean() as any;
+    if (!owner) { res.status(404).json({ error: "Owner not found" }); return; }
+
+    // Compute gross revenue from paid bookings
+    const ownerTurfs = await Turf.find({ ownerId: req.user!.id }, "_id name").lean();
+    const turfIds = ownerTurfs.map((t: any) => t._id);
+    const bookings = turfIds.length
+      ? await Booking.find({ turfId: { $in: turfIds }, paymentStatus: "paid" }).lean()
+      : [];
+    const grossRevenue = (bookings as any[]).reduce((s: number, b: any) => s + (b.totalPrice || 0), 0);
+    const commissionRate = owner.commissionRate ?? 20;
+    const adminCommission = Math.round(grossRevenue * commissionRate / 100);
+    const ownerEarnings = grossRevenue - adminCommission;
+    const payoutSent = owner.payoutSent ?? 0;
+    const pendingPayout = Math.max(0, ownerEarnings - payoutSent);
+
+    res.json({
+      commissionRate,
+      ownerEarnings,
+      adminCommission,
+      grossRevenue,
+      payoutSent,
+      pendingPayout,
+      commissionHeld: owner.commissionHeld ?? false,
+      payoutSchedule: owner.payoutSchedule ?? "manual",
+      bankDetails: owner.bankDetails ?? {},
+      payoutHistory: (owner.payoutHistory ?? []).map((p: any) => ({
+        amount: p.amount,
+        date: p.date instanceof Date ? p.date.toISOString() : p.date,
+        note: p.note,
+        method: p.method,
+      })),
+    });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch payout status" }); }
+});
+
 export default router;
