@@ -1,6 +1,6 @@
 import { Router, Response } from "express";
 import bcrypt from "bcryptjs";
-import { User, Turf, Booking, Event, Order } from "@workspace/db";
+import { User, Turf, Booking, Event, Order, Product } from "@workspace/db";
 import { authenticate, requireRole, AuthRequest } from "../middlewares/auth";
 
 const router = Router();
@@ -8,32 +8,41 @@ const router = Router();
 function userRes(u: any) {
   return {
     id: u._id.toString(), name: u.name, email: u.email, role: u.role,
-    phone: u.phone, avatar: u.avatar, blocked: u.blocked,
+    phone: u.phone, avatar: u.avatar, blocked: u.blocked || false,
     businessName: u.businessName,
     commissionRate: u.commissionRate ?? 20,
+    commissionHeld: u.commissionHeld || false,
+    payoutSchedule: u.payoutSchedule || "manual",
     bankDetails: u.bankDetails || {},
     totalPayoutSent: u.totalPayoutSent || 0,
+    payoutHistory: (u.payoutHistory || []).map((p: any) => ({
+      id: p._id?.toString(), amount: p.amount,
+      date: p.date instanceof Date ? p.date.toISOString() : p.date,
+      note: p.note, method: p.method || "bank_transfer",
+    })),
     createdAt: u.createdAt?.toISOString(),
   };
 }
+
 function turfRes(t: any, ownerName?: string) {
   return {
     id: t._id.toString(), name: t.name, description: t.description,
     pricePerHour: t.pricePerHour, images: t.images || [], rating: t.rating,
-    reviewCount: t.reviewCount, latitude: t.latitude, longitude: t.longitude,
-    address: t.address, area: t.area, amenities: t.amenities || [],
-    status: t.status, featured: t.featured, ownerId: t.ownerId?.toString(),
-    ownerName: ownerName || "", createdAt: t.createdAt?.toISOString(),
+    reviewCount: t.reviewCount, address: t.address, area: t.area,
+    amenities: t.amenities || [], status: t.status, featured: t.featured,
+    ownerId: t.ownerId?.toString(), ownerName: ownerName || "",
+    createdAt: t.createdAt?.toISOString(),
   };
 }
 
-// ─── Dashboard Stats ──────────────────────────────────────────────────────────
-
+// ── Dashboard Stats ────────────────────────────────────────────────────────────
 router.get("/admin/stats", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
   try {
-    const [users, bookings, turfs, events, orders] = await Promise.all([
-      User.find().lean(), Booking.find().lean(), Turf.find().lean(), Event.find().lean(), Order.find().lean(),
+    const [users, bookings, turfs, events, orders, products] = await Promise.all([
+      User.find().lean(), Booking.find().lean(), Turf.find().lean(),
+      Event.find().lean(), Order.find().lean(), Product.find().lean(),
     ]);
+
     const paidBookings = (bookings as any[]).filter((b: any) => b.paymentStatus === "paid");
     const paidOrders = (orders as any[]).filter((o: any) => o.paymentStatus === "paid");
     const totalBookingRevenue = paidBookings.reduce((s: number, b: any) => s + (b.totalPrice || 0), 0);
@@ -41,11 +50,11 @@ router.get("/admin/stats", authenticate, requireRole("admin"), async (req: AuthR
     const totalRevenue = totalBookingRevenue + totalShopRevenue;
 
     const owners = (users as any[]).filter((u: any) => u.role === "turf_owner");
+    const regularUsers = (users as any[]).filter((u: any) => u.role === "user");
     const turfMap = Object.fromEntries((turfs as any[]).map((t: any) => [t._id.toString(), t]));
     const ownerMap = Object.fromEntries((users as any[]).map((u: any) => [u._id.toString(), u]));
 
-    let totalAdminCommission = 0;
-    let totalOwnerEarnings = 0;
+    let totalAdminCommission = 0, totalOwnerEarnings = 0;
     for (const b of paidBookings) {
       const turf = turfMap[b.turfId?.toString()];
       if (!turf) continue;
@@ -57,65 +66,158 @@ router.get("/admin/stats", authenticate, requireRole("admin"), async (req: AuthR
     const totalPayoutSent = owners.reduce((s: number, o: any) => s + (o.totalPayoutSent || 0), 0);
     const pendingPayouts = Math.max(0, totalOwnerEarnings - totalPayoutSent);
 
-    const recentBookings = (bookings as any[]).slice(-10).reverse();
+    // Booking status breakdown
+    const confirmedBookings = (bookings as any[]).filter((b: any) => b.status === "confirmed").length;
+    const pendingBookings = (bookings as any[]).filter((b: any) => b.status === "pending").length;
+    const cancelledBookings = (bookings as any[]).filter((b: any) => b.status === "cancelled").length;
+
+    // This month stats
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const newUsersThisMonth = (users as any[]).filter((u: any) => u.createdAt && new Date(u.createdAt) >= startOfMonth).length;
+    const newBookingsThisMonth = (bookings as any[]).filter((b: any) => b.createdAt && new Date(b.createdAt) >= startOfMonth).length;
+
+    // Top owners by revenue
+    const ownerRevenue: Record<string, number> = {};
+    for (const b of paidBookings) {
+      const turf = turfMap[b.turfId?.toString()];
+      if (!turf) continue;
+      const oid = turf.ownerId?.toString();
+      if (oid) ownerRevenue[oid] = (ownerRevenue[oid] || 0) + (b.totalPrice || 0);
+    }
+    const topOwners = Object.entries(ownerRevenue)
+      .sort(([, a], [, b]) => b - a).slice(0, 5)
+      .map(([id, revenue]) => {
+        const o = ownerMap[id];
+        return { id, name: o?.name, businessName: o?.businessName, revenue };
+      });
+
+    // Recent bookings
+    const recentBookings = (bookings as any[]).slice(-8).reverse().map((b: any) => {
+      const turf = turfMap[b.turfId?.toString()];
+      const owner = ownerMap[turf?.ownerId?.toString()];
+      const rate = owner?.commissionRate ?? 20;
+      return {
+        id: b._id.toString(), turfName: turf?.name, ownerName: owner?.name,
+        date: b.date, startTime: b.startTime, endTime: b.endTime,
+        totalPrice: b.totalPrice, status: b.status, paymentStatus: b.paymentStatus,
+        adminCut: Math.round((b.totalPrice || 0) * (rate / 100)),
+        ownerCut: Math.round((b.totalPrice || 0) * ((100 - rate) / 100)),
+        commissionRate: rate, createdAt: b.createdAt?.toISOString(),
+      };
+    });
+
     res.json({
-      totalUsers: (users as any[]).filter((u: any) => u.role === "user").length,
+      totalUsers: regularUsers.length, totalOwners: owners.length,
       totalBookings: bookings.length, totalRevenue, totalBookingRevenue, totalShopRevenue,
-      activeTurfs: (turfs as any[]).filter((t: any) => t.status === "approved").length,
-      pendingTurfs: (turfs as any[]).filter((t: any) => t.status === "pending").length,
-      totalEvents: events.length, totalOrders: orders.length,
-      totalOwners: owners.length,
       totalAdminCommission: Math.round(totalAdminCommission),
       totalOwnerEarnings: Math.round(totalOwnerEarnings),
+      totalPayoutSent: Math.round(totalPayoutSent),
       pendingPayouts: Math.round(pendingPayouts),
-      recentBookings: recentBookings.map((b: any) => {
-        const turf = turfMap[b.turfId?.toString()];
-        const owner = ownerMap[turf?.ownerId?.toString()];
-        const rate = owner?.commissionRate ?? 20;
-        return {
-          id: b._id.toString(), turfId: b.turfId?.toString(),
-          turfName: turf?.name, userId: b.userId?.toString(),
-          date: b.date, startTime: b.startTime, endTime: b.endTime,
-          totalPrice: b.totalPrice, status: b.status, paymentStatus: b.paymentStatus,
-          adminCut: Math.round((b.totalPrice || 0) * (rate / 100)),
-          ownerCut: Math.round((b.totalPrice || 0) * ((100 - rate) / 100)),
-          commissionRate: rate, createdAt: b.createdAt?.toISOString(),
-        };
-      }),
+      activeTurfs: (turfs as any[]).filter((t: any) => t.status === "approved").length,
+      pendingTurfs: (turfs as any[]).filter((t: any) => t.status === "pending").length,
+      totalTurfs: turfs.length,
+      totalEvents: events.length, totalOrders: orders.length,
+      totalProducts: products.length,
+      confirmedBookings, pendingBookings, cancelledBookings,
+      newUsersThisMonth, newBookingsThisMonth,
+      blockedOwners: owners.filter((o: any) => o.blocked).length,
+      heldCommissionOwners: owners.filter((o: any) => o.commissionHeld).length,
+      topOwners, recentBookings,
     });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch stats" }); }
 });
 
-// ─── Revenue Chart ────────────────────────────────────────────────────────────
-
+// ── Revenue Chart ──────────────────────────────────────────────────────────────
 router.get("/admin/revenue", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
   try {
     const { period } = req.query as { period?: string };
-    const [bookings, orders] = await Promise.all([Booking.find({ paymentStatus: "paid" }).lean(), Order.find({ paymentStatus: "paid" }).lean()]);
-    const bookingRevenue = (bookings as any[]).reduce((s: number, b: any) => s + (b.totalPrice || 0), 0);
-    const shopRevenue = (orders as any[]).reduce((s: number, o: any) => s + (o.totalAmount || 0), 0);
-    const labels = period === "year"
-      ? ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-      : period === "month"
-      ? Array.from({ length: 30 }, (_, i) => `${i + 1}`)
-      : ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+    const [bookings, orders] = await Promise.all([
+      Booking.find({ paymentStatus: "paid" }).lean(),
+      Order.find({ paymentStatus: "paid" }).lean(),
+    ]);
+
+    const now = new Date();
+    let labels: string[];
+    let getKey: (d: Date) => string;
+
+    if (period === "year") {
+      labels = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      getKey = (d) => labels[d.getMonth()];
+    } else if (period === "week") {
+      labels = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+      getKey = (d) => labels[(d.getDay() + 6) % 7];
+    } else {
+      labels = Array.from({ length: 30 }, (_, i) => String(i + 1));
+      getKey = (d) => String(d.getDate());
+    }
+
+    const revenueByLabel: Record<string, number> = {};
+    const commissionByLabel: Record<string, number> = {};
+    const ownerByLabel: Record<string, number> = {};
+    labels.forEach(l => { revenueByLabel[l] = 0; commissionByLabel[l] = 0; ownerByLabel[l] = 0; });
+
+    for (const b of bookings as any[]) {
+      const d = b.createdAt ? new Date(b.createdAt) : null;
+      if (!d) continue;
+      const key = getKey(d);
+      if (!(key in revenueByLabel)) continue;
+      const amt = b.totalPrice || 0;
+      revenueByLabel[key] += amt;
+      commissionByLabel[key] += amt * 0.2;
+      ownerByLabel[key] += amt * 0.8;
+    }
+
+    const shopByLabel: Record<string, number> = {};
+    labels.forEach(l => { shopByLabel[l] = 0; });
+    for (const o of orders as any[]) {
+      const d = o.createdAt ? new Date(o.createdAt) : null;
+      if (!d) continue;
+      const key = getKey(d);
+      if (!(key in shopByLabel)) continue;
+      shopByLabel[key] += o.totalAmount || 0;
+    }
+
     const chartData = labels.map((label) => ({
       label,
-      bookings: Math.floor(Math.random() * 15) + 2,
-      revenue: Math.floor(Math.random() * 5000) + 500,
-      commission: Math.floor(Math.random() * 1200) + 100,
-      ownerPayout: Math.floor(Math.random() * 3500) + 300,
+      revenue: Math.round(revenueByLabel[label]),
+      commission: Math.round(commissionByLabel[label]),
+      ownerPayout: Math.round(ownerByLabel[label]),
+      shop: Math.round(shopByLabel[label]),
     }));
+
+    const bookingRevenue = (bookings as any[]).reduce((s: number, b: any) => s + (b.totalPrice || 0), 0);
+    const shopRevenue = (orders as any[]).reduce((s: number, o: any) => s + (o.totalAmount || 0), 0);
     res.json({ bookingRevenue, shopRevenue, chartData });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch revenue" }); }
 });
 
-// ─── All Users ────────────────────────────────────────────────────────────────
-
+// ── Users ──────────────────────────────────────────────────────────────────────
 router.get("/admin/users", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
   try {
     const users = await User.find().lean();
-    res.json(users.map(userRes));
+    const allBookings = await Booking.find().lean();
+    const allOrders = await Order.find().lean();
+
+    const bookingsByUser: Record<string, number> = {};
+    const spendingByUser: Record<string, number> = {};
+    for (const b of allBookings as any[]) {
+      const uid = b.userId?.toString();
+      if (uid) {
+        bookingsByUser[uid] = (bookingsByUser[uid] || 0) + 1;
+        if (b.paymentStatus === "paid") spendingByUser[uid] = (spendingByUser[uid] || 0) + (b.totalPrice || 0);
+      }
+    }
+    for (const o of allOrders as any[]) {
+      const uid = o.userId?.toString();
+      if (uid && o.paymentStatus === "paid") spendingByUser[uid] = (spendingByUser[uid] || 0) + (o.totalAmount || 0);
+    }
+
+    res.json((users as any[]).map((u: any) => ({
+      ...userRes(u),
+      totalBookings: bookingsByUser[u._id.toString()] || 0,
+      totalSpending: Math.round(spendingByUser[u._id.toString()] || 0),
+    })));
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch users" }); }
 });
 
@@ -135,8 +237,17 @@ router.put("/admin/users/:id/role", authenticate, requireRole("admin"), async (r
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to update role" }); }
 });
 
-// ─── Turf Management ──────────────────────────────────────────────────────────
+router.delete("/admin/users/:id", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await User.findById(req.params.id).lean() as any;
+    if (!user) { res.status(404).json({ error: "User not found" }); return; }
+    if (user.role === "admin") { res.status(400).json({ error: "Cannot delete admin accounts" }); return; }
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to delete user" }); }
+});
 
+// ── Turf Management ────────────────────────────────────────────────────────────
 router.put("/admin/turfs/:id/approve", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
   try {
     const turf = await Turf.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true }).lean();
@@ -160,11 +271,10 @@ router.delete("/admin/turfs/:id", authenticate, requireRole("admin"), async (req
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to delete turf" }); }
 });
 
-// ─── Owner Management ─────────────────────────────────────────────────────────
-
+// ── Owner Management ───────────────────────────────────────────────────────────
 router.post("/admin/owners", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
   try {
-    const { name, email, password, phone, businessName, commissionRate, bankDetails } = req.body;
+    const { name, email, password, phone, businessName, commissionRate, payoutSchedule, bankDetails } = req.body;
     if (!name || !email || !password || !phone) {
       res.status(400).json({ error: "name, email, password, phone are required" }); return;
     }
@@ -175,8 +285,11 @@ router.post("/admin/owners", authenticate, requireRole("admin"), async (req: Aut
       name, email, passwordHash, phone, role: "turf_owner",
       businessName: businessName || name,
       commissionRate: Math.min(100, Math.max(0, Number(commissionRate) || 20)),
+      commissionHeld: false,
+      payoutSchedule: payoutSchedule || "manual",
       bankDetails: bankDetails || {},
       totalPayoutSent: 0,
+      payoutHistory: [],
     });
     res.status(201).json(userRes(owner));
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to create owner account" }); }
@@ -220,11 +333,7 @@ router.get("/admin/owners", authenticate, requireRole("admin"), async (req: Auth
         turfCount: turfs.length,
         activeTurfs: turfs.filter((t: any) => t.status === "approved").length,
         totalBookings: bookings.length,
-        grossRevenue,
-        adminCommission,
-        ownerEarnings,
-        payoutSent,
-        pendingPayout,
+        grossRevenue, adminCommission, ownerEarnings, payoutSent, pendingPayout,
         turfs: turfs.map((t: any) => ({
           id: t._id.toString(), name: t.name, area: t.area, status: t.status,
           pricePerHour: t.pricePerHour, rating: t.rating, reviewCount: t.reviewCount,
@@ -235,75 +344,67 @@ router.get("/admin/owners", authenticate, requireRole("admin"), async (req: Auth
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch owners" }); }
 });
 
-router.get("/admin/owners/:id", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
-  try {
-    const owner = await User.findById(req.params.id).lean() as any;
-    if (!owner || owner.role !== "turf_owner") { res.status(404).json({ error: "Owner not found" }); return; }
-    const turfs = await Turf.find({ ownerId: owner._id }).lean();
-    const turfIds = (turfs as any[]).map((t: any) => t._id);
-    const bookings = await Booking.find({ turfId: { $in: turfIds } }).sort({ createdAt: -1 }).lean();
-    const paidBookings = (bookings as any[]).filter((b: any) => b.paymentStatus === "paid");
-    const grossRevenue = paidBookings.reduce((s: number, b: any) => s + (b.totalPrice || 0), 0);
-    const rate = owner.commissionRate ?? 20;
-    const adminCommission = Math.round(grossRevenue * (rate / 100));
-    const ownerEarnings = Math.round(grossRevenue * ((100 - rate) / 100));
-    const payoutSent = owner.totalPayoutSent || 0;
-    const pendingPayout = Math.max(0, ownerEarnings - payoutSent);
-    const turfMap = Object.fromEntries((turfs as any[]).map((t: any) => [t._id.toString(), t]));
-    res.json({
-      ...userRes(owner),
-      turfCount: turfs.length,
-      activeTurfs: (turfs as any[]).filter((t: any) => t.status === "approved").length,
-      totalBookings: bookings.length, grossRevenue, adminCommission, ownerEarnings, payoutSent, pendingPayout,
-      turfs: (turfs as any[]).map((t: any) => ({ id: t._id.toString(), name: t.name, area: t.area, status: t.status, pricePerHour: t.pricePerHour, rating: t.rating, images: t.images || [] })),
-      bookings: (bookings as any[]).slice(0, 20).map((b: any) => {
-        const turf = turfMap[b.turfId?.toString()];
-        const adminCut = Math.round((b.totalPrice || 0) * (rate / 100));
-        const ownerCut = Math.round((b.totalPrice || 0) * ((100 - rate) / 100));
-        return { id: b._id.toString(), turfName: turf?.name, date: b.date, startTime: b.startTime, endTime: b.endTime, totalPrice: b.totalPrice, adminCut, ownerCut, status: b.status, paymentStatus: b.paymentStatus, createdAt: b.createdAt?.toISOString() };
-      }),
-    });
-  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch owner" }); }
-});
-
 router.put("/admin/owners/:id", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
   try {
-    const { commissionRate, businessName, bankDetails, blocked } = req.body;
+    const { commissionRate, businessName, bankDetails, blocked, payoutSchedule, phone } = req.body;
     const update: any = {};
     if (commissionRate !== undefined) update.commissionRate = Math.min(100, Math.max(0, Number(commissionRate)));
     if (businessName !== undefined) update.businessName = businessName;
     if (bankDetails !== undefined) update.bankDetails = bankDetails;
     if (blocked !== undefined) update.blocked = blocked;
+    if (payoutSchedule !== undefined) update.payoutSchedule = payoutSchedule;
+    if (phone !== undefined) update.phone = phone;
     const owner = await User.findByIdAndUpdate(req.params.id, update, { new: true }).lean();
     if (!owner) { res.status(404).json({ error: "Owner not found" }); return; }
     res.json(userRes(owner));
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to update owner" }); }
 });
 
+router.post("/admin/owners/:id/hold", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const owner = await User.findById(req.params.id).lean() as any;
+    if (!owner) { res.status(404).json({ error: "Owner not found" }); return; }
+    const newHeld = !owner.commissionHeld;
+    const updated = await User.findByIdAndUpdate(req.params.id, { commissionHeld: newHeld }, { new: true }).lean();
+    res.json({ ...userRes(updated!), commissionHeld: newHeld });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to toggle hold" }); }
+});
+
 router.post("/admin/owners/:id/payout", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
   try {
-    const { amount } = req.body;
+    const { amount, note, method } = req.body;
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       res.status(400).json({ error: "Valid payout amount is required" }); return;
     }
-    const owner = await User.findByIdAndUpdate(
+    const owner = await User.findById(req.params.id).lean() as any;
+    if (!owner) { res.status(404).json({ error: "Owner not found" }); return; }
+    if (owner.commissionHeld) { res.status(400).json({ error: "Commission is on hold for this owner" }); return; }
+
+    const payoutRecord = { amount: Number(amount), date: new Date(), note: note || "", method: method || "bank_transfer" };
+    const updated = await User.findByIdAndUpdate(
       req.params.id,
-      { $inc: { totalPayoutSent: Number(amount) } },
+      { $inc: { totalPayoutSent: Number(amount) }, $push: { payoutHistory: payoutRecord } },
       { new: true }
     ).lean();
-    if (!owner) { res.status(404).json({ error: "Owner not found" }); return; }
-    res.json(userRes(owner));
+    res.json(userRes(updated!));
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to record payout" }); }
 });
 
-// ─── All Bookings (admin view) ────────────────────────────────────────────────
+router.delete("/admin/owners/:id", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const owner = await User.findById(req.params.id).lean() as any;
+    if (!owner || owner.role !== "turf_owner") { res.status(404).json({ error: "Owner not found" }); return; }
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to delete owner" }); }
+});
 
+// ── All Bookings ───────────────────────────────────────────────────────────────
 router.get("/admin/bookings", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
   try {
-    const { status, turfId, page = "1", limit = "20" } = req.query as any;
+    const { status, page = "1", limit = "30" } = req.query as any;
     const filter: any = {};
-    if (status) filter.status = status;
-    if (turfId) filter.turfId = turfId;
+    if (status && status !== "all") filter.status = status;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [bookings, total] = await Promise.all([
       Booking.find(filter).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)).lean(),
@@ -342,6 +443,60 @@ router.get("/admin/bookings", authenticate, requireRole("admin"), async (req: Au
       }),
     });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch bookings" }); }
+});
+
+// ── Shop Stats ─────────────────────────────────────────────────────────────────
+router.get("/admin/shop/stats", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const [products, orders] = await Promise.all([
+      Product.find().lean(),
+      Order.find().lean(),
+    ]);
+    const paidOrders = (orders as any[]).filter((o: any) => o.paymentStatus === "paid");
+    const totalRevenue = paidOrders.reduce((s: number, o: any) => s + (o.totalAmount || 0), 0);
+
+    // Revenue by category
+    const categoryRevenue: Record<string, number> = {};
+    const categorySales: Record<string, number> = {};
+    for (const o of paidOrders) {
+      for (const item of (o as any).items || []) {
+        const cat = item.category || "Other";
+        categoryRevenue[cat] = (categoryRevenue[cat] || 0) + (item.price * item.quantity);
+        categorySales[cat] = (categorySales[cat] || 0) + item.quantity;
+      }
+    }
+
+    // Order status breakdown
+    const statusBreakdown: Record<string, number> = {};
+    for (const o of orders as any[]) {
+      statusBreakdown[o.status] = (statusBreakdown[o.status] || 0) + 1;
+    }
+
+    // Top products by sales
+    const productSales: Record<string, { name: string; qty: number; revenue: number }> = {};
+    for (const o of paidOrders) {
+      for (const item of (o as any).items || []) {
+        const pid = item.productId?.toString() || item.name;
+        if (!productSales[pid]) productSales[pid] = { name: item.name, qty: 0, revenue: 0 };
+        productSales[pid].qty += item.quantity;
+        productSales[pid].revenue += item.price * item.quantity;
+      }
+    }
+    const topProducts = Object.values(productSales).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+
+    // Low stock products
+    const lowStockProducts = (products as any[]).filter((p: any) => (p.stock || 0) <= 5)
+      .map((p: any) => ({ id: p._id.toString(), name: p.name, stock: p.stock, category: p.category }));
+
+    res.json({
+      totalProducts: products.length, totalOrders: orders.length,
+      totalRevenue: Math.round(totalRevenue),
+      pendingOrders: (orders as any[]).filter((o: any) => o.status === "pending").length,
+      completedOrders: (orders as any[]).filter((o: any) => o.status === "delivered").length,
+      categoryRevenue, categorySales, statusBreakdown,
+      topProducts, lowStockProducts,
+    });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch shop stats" }); }
 });
 
 export default router;

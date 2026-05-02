@@ -8,6 +8,13 @@ export interface IBankDetails {
   upiId?: string;
 }
 
+export interface IPayoutRecord {
+  amount: number;
+  date: Date;
+  note?: string;
+  method?: string;
+}
+
 export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
   name: string;
@@ -19,8 +26,11 @@ export interface IUser extends Document {
   blocked: boolean;
   businessName?: string;
   commissionRate?: number;
+  commissionHeld?: boolean;
+  payoutSchedule?: string;
   bankDetails?: IBankDetails;
   totalPayoutSent?: number;
+  payoutHistory?: IPayoutRecord[];
   createdAt: Date;
 }
 
@@ -32,6 +42,13 @@ const BankDetailsSchema = new Schema<IBankDetails>({
   upiId: String,
 }, { _id: false });
 
+const PayoutRecordSchema = new Schema<IPayoutRecord>({
+  amount: { type: Number, required: true },
+  date: { type: Date, default: Date.now },
+  note: String,
+  method: { type: String, default: "bank_transfer" },
+}, { _id: true, timestamps: false });
+
 const UserSchema = new Schema<IUser>({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
@@ -42,8 +59,11 @@ const UserSchema = new Schema<IUser>({
   blocked: { type: Boolean, default: false },
   businessName: String,
   commissionRate: { type: Number, default: 20 },
+  commissionHeld: { type: Boolean, default: false },
+  payoutSchedule: { type: String, default: "manual" },
   bankDetails: BankDetailsSchema,
   totalPayoutSent: { type: Number, default: 0 },
+  payoutHistory: { type: [PayoutRecordSchema], default: [] },
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 export const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
