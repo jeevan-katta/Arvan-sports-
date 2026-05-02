@@ -1,50 +1,70 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Building2, CalendarDays, TrendingUp, LogOut } from "lucide-react";
+import {
+  LayoutDashboard, Building2, CalendarDays, TrendingUp, Wallet, LogOut,
+} from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { cn } from "@/lib/utils";
 
 const navItems = [
-  { name: "Dashboard", href: "/owner", icon: LayoutDashboard },
-  { name: "My Turfs", href: "/owner/turfs", icon: Building2 },
-  { name: "Bookings", href: "/owner/bookings", icon: CalendarDays },
-  { name: "Revenue", href: "/owner/revenue", icon: TrendingUp },
+  { name: "Dashboard", href: "/owner",          icon: LayoutDashboard, exact: true },
+  { name: "My Turfs",  href: "/owner/turfs",    icon: Building2 },
+  { name: "Bookings",  href: "/owner/bookings", icon: CalendarDays },
+  { name: "Revenue",   href: "/owner/revenue",  icon: TrendingUp },
+  { name: "Payout",    href: "/owner/payout",   icon: Wallet },
 ];
 
 export function OwnerLayout({ children }: { children: ReactNode }) {
   const [location, setLocation] = useLocation();
   const { logout } = useAuth();
 
+  const isActive = (href: string, exact?: boolean) =>
+    exact ? location === href : location === href || location.startsWith(href + "/");
+
   return (
     <div className="min-h-screen bg-muted/30 flex justify-center">
       <div className="w-full max-w-md bg-background min-h-screen flex flex-col shadow-2xl">
-        {/* Mobile top nav */}
-        <header className="sticky top-0 z-40 bg-card border-b border-border h-14 flex items-center justify-between px-4">
-          <h1 className="font-display font-bold text-lg text-primary">OWNER PORTAL</h1>
-          <div className="flex gap-2 text-xs overflow-x-auto hide-scrollbar">
-            {navItems.map(item => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`whitespace-nowrap px-3 py-1.5 rounded-full font-bold transition-colors ${location === item.href ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
-              >
-                {item.name}
-              </Link>
-            ))}
+
+        {/* Top nav */}
+        <header className="sticky top-0 z-40 bg-card border-b border-border">
+          <div className="h-14 flex items-center justify-between px-4">
+            <h1 className="font-display font-bold text-base text-primary flex-shrink-0">
+              OWNER PORTAL
+            </h1>
+            <button
+              onClick={() => { logout(); setLocation("/login"); }}
+              className="flex-shrink-0 flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {/* Nav pills — scrollable */}
+          <div className="flex gap-1.5 px-4 pb-3 overflow-x-auto hide-scrollbar">
+            {navItems.map((item) => {
+              const active = isActive(item.href, item.exact);
+              return (
+                <Link key={item.name} href={item.href}>
+                  <div
+                    className={cn(
+                      "whitespace-nowrap flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer select-none",
+                      active
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    )}
+                  >
+                    <item.icon className="h-3 w-3 flex-shrink-0" />
+                    {item.name}
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </header>
 
         <main className="flex-1 overflow-y-auto">
           {children}
         </main>
-
-        <div className="p-4 border-t border-border">
-          <button
-            onClick={() => { logout(); setLocation("/login"); }}
-            className="w-full flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-destructive font-bold py-2"
-          >
-            <LogOut className="h-4 w-4" /> Log Out
-          </button>
-        </div>
       </div>
     </div>
   );

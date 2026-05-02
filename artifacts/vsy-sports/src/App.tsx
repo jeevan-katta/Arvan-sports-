@@ -40,6 +40,7 @@ import OwnerDashboard from "@/pages/owner";
 import OwnerTurfs from "@/pages/owner/turfs";
 import OwnerBookings from "@/pages/owner/bookings";
 import OwnerRevenue from "@/pages/owner/revenue";
+import OwnerPayout from "@/pages/owner/payout";
 
 import NotFound from "@/pages/not-found";
 
@@ -85,6 +86,9 @@ function Router() {
       </Route>
       <Route path="/owner/revenue">
         <OwnerLayout><OwnerRoute component={OwnerRevenue} /></OwnerLayout>
+      </Route>
+      <Route path="/owner/payout">
+        <OwnerLayout><OwnerRoute component={OwnerPayout} /></OwnerLayout>
       </Route>
 
       {/* ── Admin Routes (flat — no nested Switch inside wildcard) ── */}
