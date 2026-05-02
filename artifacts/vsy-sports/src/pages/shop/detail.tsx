@@ -156,8 +156,8 @@ export default function ProductDetail() {
         )}
       </div>
 
-      {/* Floating Add to Cart */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/90 backdrop-blur-md border-t border-border z-40 max-w-md mx-auto">
+      {/* Floating Add to Cart — above bottom nav (h-16) */}
+      <div className="fixed bottom-16 left-0 right-0 p-4 bg-background/90 backdrop-blur-md border-t border-border z-40 max-w-md mx-auto">
         <div className="flex items-center gap-3">
           <div className="flex items-center border border-input rounded-xl h-14 bg-background px-1">
             <Button 

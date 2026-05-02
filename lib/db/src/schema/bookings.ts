@@ -13,6 +13,7 @@ export const bookingsTable = pgTable("bookings", {
   startTime: text("start_time").notNull(),
   endTime: text("end_time").notNull(),
   totalPrice: real("total_price").notNull(),
+  playerCount: integer("player_count").notNull().default(10),
   status: text("status").notNull().default("pending"),
   paymentStatus: text("payment_status").notNull().default("unpaid"),
   razorpayOrderId: text("razorpay_order_id"),

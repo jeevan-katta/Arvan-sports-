@@ -30,3 +30,9 @@ externalPort = 80
 [[ports]]
 localPort = 24083
 externalPort = 3000
+
+[userenv]
+
+[userenv.shared]
+RAZORPAY_KEY_ID = "rzp_test_SdOaygxKgcqw7D"
+RAZORPAY_KEY_SECRET = "38hV73E65icfwUFEua8V0GD3"

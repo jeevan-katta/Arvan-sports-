@@ -11,11 +11,10 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { MapPin, Star, ChevronLeft, Calendar as CalendarIcon, Info, Users, Car, Coffee, Shield, Check } from "lucide-react";
+import { MapPin, Star, ChevronLeft, Calendar as CalendarIcon, Info, Users, Car, Coffee, Shield, Check, Minus, Plus } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { useQueryClient } from "@tanstack/react-query";
 
 export default function TurfDetail() {
   const { id } = useParams();
@@ -23,10 +22,10 @@ export default function TurfDetail() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
-  const queryClient = useQueryClient();
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedSlotIds, setSelectedSlotIds] = useState<number[]>([]);
+  const [playerCount, setPlayerCount] = useState(10);
 
   const { data: turf, isLoading: isLoadingTurf } = useGetTurf(turfId, {
     query: { enabled: !!turfId }
@@ -54,8 +53,6 @@ export default function TurfDetail() {
     }
     if (selectedSlotIds.length === 0) return;
 
-    toast({ title: `Booking ${selectedSlotIds.length} slot${selectedSlotIds.length > 1 ? "s" : ""}...`, description: "Please wait" });
-
     try {
       const bookingIds: number[] = [];
 
@@ -64,7 +61,7 @@ export default function TurfDetail() {
           data: {
             turfId,
             slotId,
-            date: format(selectedDate, "yyyy-MM-dd")
+            date: format(selectedDate, "yyyy-MM-dd"),
           }
         });
         bookingIds.push(booking.id);
@@ -75,7 +72,6 @@ export default function TurfDetail() {
         description: `${bookingIds.length} slot${bookingIds.length > 1 ? "s" : ""} booked. Proceed to payment.`,
       });
 
-      // Navigate to first booking for payment if single, else to bookings list
       if (bookingIds.length === 1) {
         setLocation(`/booking/${bookingIds[0]}`);
       } else {
@@ -112,7 +108,7 @@ export default function TurfDetail() {
   const pricePerSlot = turf.pricePerHour || 0;
 
   return (
-    <div className="flex flex-col min-h-screen bg-background pb-28">
+    <div className="flex flex-col min-h-screen bg-background pb-36">
       {/* Hero Image */}
       <div className="relative h-64 sm:h-80 bg-muted w-full">
         <Button
@@ -137,7 +133,7 @@ export default function TurfDetail() {
             <div className="text-white">
               <h1 className="text-2xl font-bold font-display tracking-wide">{turf.name}</h1>
               <p className="text-sm opacity-90 flex items-center mt-1">
-                <MapPin className="h-3 w-3 mr-1" /> {turf.area}, {turf.distanceKm}km away
+                <MapPin className="h-3 w-3 mr-1" /> {turf.area}{turf.distanceKm ? `, ${turf.distanceKm}km away` : ""}
               </p>
             </div>
             <div className="bg-yellow-500 text-yellow-950 px-2 py-1 rounded-lg flex items-center font-bold text-sm">
@@ -287,6 +283,38 @@ export default function TurfDetail() {
           )}
         </div>
 
+        {/* Player Count */}
+        <div>
+          <h3 className="font-bold mb-3">Number of Players</h3>
+          <div className="flex items-center justify-between bg-muted/50 rounded-xl p-4">
+            <div>
+              <p className="text-sm font-medium">Team size</p>
+              <p className="text-xs text-muted-foreground">How many players will be playing?</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full border-2"
+                onClick={() => setPlayerCount(c => Math.max(2, c - 1))}
+                disabled={playerCount <= 2}
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+              <span className="w-8 text-center font-bold text-lg">{playerCount}</span>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full border-2"
+                onClick={() => setPlayerCount(c => Math.min(22, c + 1))}
+                disabled={playerCount >= 22}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
         {/* Reviews */}
         {turf.reviews && turf.reviews.length > 0 && (
           <div>
@@ -313,14 +341,14 @@ export default function TurfDetail() {
         )}
       </div>
 
-      {/* Floating Book Action */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-border z-40 max-w-md mx-auto">
+      {/* Floating Book Action — sits above the bottom nav (h-16) */}
+      <div className="fixed bottom-16 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-border z-40 max-w-md mx-auto">
         <div className="flex items-center gap-4">
           <div className="flex-1 min-w-0">
             {selectedSlotIds.length > 0 ? (
               <div className="flex flex-col">
                 <span className="text-xs text-muted-foreground font-medium uppercase truncate">
-                  {selectedSlotIds.length} slot{selectedSlotIds.length > 1 ? "s" : ""} • {format(selectedDate, "MMM dd")}
+                  {selectedSlotIds.length} slot{selectedSlotIds.length > 1 ? "s" : ""} · {playerCount} players · {format(selectedDate, "MMM dd")}
                 </span>
                 <span className="text-lg font-bold text-foreground">
                   ₹{totalPrice}
@@ -345,7 +373,7 @@ export default function TurfDetail() {
               ? "Booking..."
               : selectedSlotIds.length === 0
               ? "Select a Slot"
-              : `Book ${selectedSlotIds.length > 1 ? `${selectedSlotIds.length} Slots` : "Now"}`}
+              : `Continue →`}
           </Button>
         </div>
       </div>

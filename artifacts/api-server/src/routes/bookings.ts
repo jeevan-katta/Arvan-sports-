@@ -3,12 +3,18 @@ import { db, bookingsTable, turfsTable, timeSlotsTable, usersTable } from "@work
 import { eq, and } from "drizzle-orm";
 import { authenticate, requireRole, AuthRequest } from "../middlewares/auth";
 import { CreateBookingBody } from "@workspace/api-zod";
+import Razorpay from "razorpay";
 import crypto from "crypto";
 
 const router = Router();
 
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || "rzp_test_dummy_key";
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || "dummy_secret_key";
+
+const razorpay = new Razorpay({
+  key_id: RAZORPAY_KEY_ID,
+  key_secret: RAZORPAY_KEY_SECRET,
+});
 
 function bookingResponse(booking: any, turf?: any, user?: any) {
   return {
@@ -24,8 +30,10 @@ function bookingResponse(booking: any, turf?: any, user?: any) {
     endTime: booking.endTime,
     date: booking.date,
     totalPrice: booking.totalPrice,
+    playerCount: booking.playerCount,
     status: booking.status,
     paymentStatus: booking.paymentStatus,
+    razorpayOrderId: booking.razorpayOrderId,
     createdAt: booking.createdAt?.toISOString(),
   };
 }
@@ -62,6 +70,8 @@ router.post("/bookings", authenticate, async (req: AuthRequest, res: Response) =
       return;
     }
     const { turfId, slotId, date } = parsed.data;
+    const playerCount = (req.body.playerCount as number) || 10;
+
     const existing = await db.select().from(bookingsTable).where(
       and(eq(bookingsTable.turfId, turfId), eq(bookingsTable.slotId, slotId), eq(bookingsTable.date, date))
     );
@@ -79,6 +89,7 @@ router.post("/bookings", authenticate, async (req: AuthRequest, res: Response) =
       turfId, userId: req.user!.id, slotId, date,
       startTime: slot.startTime, endTime: slot.endTime,
       totalPrice: turf.pricePerHour,
+      playerCount,
       status: "pending",
     }).returning();
     res.status(201).json(bookingResponse(booking, turf));
@@ -133,9 +144,23 @@ router.post("/bookings/:id/payment", authenticate, async (req: AuthRequest, res:
       res.status(404).json({ error: "Booking not found" });
       return;
     }
-    const orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+    const isDummy = RAZORPAY_KEY_ID === "rzp_test_dummy_key";
+    let orderId: string;
+
+    if (isDummy) {
+      orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    } else {
+      const rzpOrder = await razorpay.orders.create({
+        amount: Math.round(booking.totalPrice * 100),
+        currency: "INR",
+        receipt: `booking_${id}`,
+      });
+      orderId = rzpOrder.id;
+    }
+
     await db.update(bookingsTable).set({ razorpayOrderId: orderId }).where(eq(bookingsTable.id, id));
-    res.json({ orderId, amount: booking.totalPrice * 100, currency: "INR", key: RAZORPAY_KEY_ID });
+    res.json({ orderId, amount: Math.round(booking.totalPrice * 100), currency: "INR", key: RAZORPAY_KEY_ID });
   } catch (err) {
     req.log?.error(err);
     res.status(500).json({ error: "Failed to create payment" });
@@ -146,8 +171,9 @@ router.post("/bookings/:id/verify-payment", authenticate, async (req: AuthReques
   try {
     const id = parseInt(req.params.id);
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
-    const isTestMode = RAZORPAY_KEY_SECRET === "dummy_secret_key" || razorpaySignature === "simulated_signature";
-    if (!isTestMode) {
+
+    const isDummy = RAZORPAY_KEY_SECRET === "dummy_secret_key";
+    if (!isDummy) {
       const expectedSig = crypto.createHmac("sha256", RAZORPAY_KEY_SECRET)
         .update(`${razorpayOrderId}|${razorpayPaymentId}`).digest("hex");
       if (expectedSig !== razorpaySignature) {
@@ -155,6 +181,7 @@ router.post("/bookings/:id/verify-payment", authenticate, async (req: AuthReques
         return;
       }
     }
+
     const [booking] = await db.update(bookingsTable).set({
       paymentStatus: "paid", status: "confirmed",
       razorpayPaymentId,
