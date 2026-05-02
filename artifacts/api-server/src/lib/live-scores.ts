@@ -125,6 +125,11 @@ export function addBall(id: string, result: string, team?: "A" | "B"): LiveMatch
   return updated;
 }
 
+/** Broadcast that specific slots on a turf+date just became booked */
+export function broadcastSlotUpdate(turfId: string, date: string, slotIds: string[]) {
+  broadcast({ type: "slot_update", turfId, date, slotIds });
+}
+
 export function deleteMatch(id: string): boolean {
   const existed = liveMatches.has(id);
   if (existed) {

@@ -1,13 +1,15 @@
 import { useState, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import { format, isToday } from "date-fns";
-import { useGetTurf, useGetTurfSlots, useCreateBooking } from "@workspace/api-client-react";
+import { useGetTurf, useGetTurfSlots, useCreateBooking, getGetTurfSlotsQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { MapPin, Star, ChevronLeft, Calendar as CalendarIcon, Info, Users, Car, Coffee, Shield, Check, Minus, Plus, Clock, ExternalLink } from "lucide-react";
+import { useSlotUpdates } from "@/hooks/use-slot-updates";
+import { MapPin, Star, ChevronLeft, Calendar as CalendarIcon, Info, Users, Car, Coffee, Shield, Check, Minus, Plus, Clock, ExternalLink, Wifi } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -37,14 +39,26 @@ export default function TurfDetail() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedSlotIds, setSelectedSlotIds] = useState<string[]>([]);
   const [playerCount, setPlayerCount] = useState(10);
+  const [recentlyTaken, setRecentlyTaken] = useState<string[]>([]);
+
+  const dateStr = format(selectedDate, "yyyy-MM-dd");
 
   const { data: turf, isLoading: isLoadingTurf } = useGetTurf(turfId, { query: { enabled: !!turfId } });
-  const { data: slots, isLoading: isLoadingSlots } = useGetTurfSlots(turfId, { date: format(selectedDate, "yyyy-MM-dd") }, { query: { enabled: !!turfId } });
+  const { data: slots, isLoading: isLoadingSlots } = useGetTurfSlots(turfId, { date: dateStr }, { query: { enabled: !!turfId } });
   const createBooking = useCreateBooking();
+
+  useSlotUpdates(turfId, dateStr, (updatedSlotIds) => {
+    queryClient.invalidateQueries({ queryKey: getGetTurfSlotsQueryKey(turfId, { date: dateStr }) });
+    setSelectedSlotIds(prev => prev.filter(sid => !updatedSlotIds.includes(sid)));
+    setRecentlyTaken(updatedSlotIds);
+    toast({ title: "Slot just taken!", description: "Someone just booked a slot — availability updated." });
+    setTimeout(() => setRecentlyTaken([]), 4000);
+  });
 
   /** Check if selected slots form a consecutive chain (no gaps) */
   const isConsecutive = useMemo(() => {
@@ -183,8 +197,13 @@ export default function TurfDetail() {
         <div>
           <div className="flex justify-between items-end mb-3">
             <div>
-              <h3 className="font-bold">Book Slots</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Select consecutive slots for a single booking</p>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold">Book Slots</h3>
+                <span className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded-full">
+                  <Wifi className="h-2.5 w-2.5" /> LIVE
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">Select consecutive slots · updates in real-time</p>
             </div>
             <Popover>
               <PopoverTrigger asChild>
@@ -233,6 +252,7 @@ export default function TurfDetail() {
                 .filter(slot => !isPastSlot(slot.startTime, selectedDate))
                 .map(slot => {
                   const isSelected = selectedSlotIds.includes(slot.id);
+                  const justTaken = recentlyTaken.includes(slot.id);
                   return (
                     <button
                       key={slot.id}
@@ -242,13 +262,16 @@ export default function TurfDetail() {
                         "h-14 flex flex-col items-center justify-center p-1 rounded-xl border-2 relative overflow-hidden transition-all",
                         isSelected ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/20"
                           : slot.isBooked ? "bg-muted/50 border-muted opacity-50 cursor-not-allowed"
+                          : justTaken ? "bg-orange-500/10 border-orange-400 animate-pulse"
                           : "bg-card border-border hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
                       )}
                     >
                       {isSelected && <span className="absolute top-1 right-1"><Check className="h-3 w-3" /></span>}
                       <span className="text-sm font-bold">{to12hr(slot.startTime)}</span>
-                      <span className={cn("text-[10px] mt-0.5", isSelected ? "opacity-80" : "text-muted-foreground")}>₹{slot.price || turf.pricePerHour}</span>
-                      {slot.isBooked && (
+                      <span className={cn("text-[10px] mt-0.5", isSelected ? "opacity-80" : justTaken ? "text-orange-600 font-bold" : "text-muted-foreground")}>
+                        {justTaken ? "Just taken!" : `₹${slot.price || turf.pricePerHour}`}
+                      </span>
+                      {slot.isBooked && !justTaken && (
                         <div className="absolute inset-0 flex items-center justify-center bg-background/80">
                           <span className="text-[10px] font-bold text-destructive">BOOKED</span>
                         </div>

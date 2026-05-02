@@ -2,6 +2,7 @@ import { Router, Response } from "express";
 import { Types } from "mongoose";
 import { Turf, TimeSlot, Booking, User } from "@workspace/db";
 import { authenticate, AuthRequest } from "../middlewares/auth";
+import { broadcastSlotUpdate } from "../lib/live-scores";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 
@@ -73,6 +74,7 @@ router.post("/bookings", authenticate, async (req: AuthRequest, res: Response) =
       playerCount: playerCount || 10,
       status: "pending", paymentType: "full", expiresAt,
     });
+    broadcastSlotUpdate(String(turfId), date, slotIds);
     res.status(201).json(bookingRes(booking, turf));
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to create booking" }); }
 });
