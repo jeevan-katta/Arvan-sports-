@@ -8,8 +8,8 @@
 import type { PostStatus } from "./postStatus";
 
 export interface Post {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   userName?: string;
   userAvatar?: string;
   title: string;

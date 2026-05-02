@@ -1,8 +1,11 @@
 import { Router, Request, Response } from "express";
+import { Types } from "mongoose";
 import { Product, CartItem, Order, User } from "@workspace/db";
 import { authenticate, requireRole, AuthRequest } from "../middlewares/auth";
 import Razorpay from "razorpay";
 import crypto from "crypto";
+
+const isValidId = (id: string) => Types.ObjectId.isValid(id);
 
 const router = Router();
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || "rzp_test_dummy_key";
@@ -54,6 +57,7 @@ router.post("/shop/products", authenticate, requireRole("admin"), async (req: Au
 
 router.get("/shop/products/:id", async (req: Request, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Product not found" }); return; }
     const product = await Product.findById(req.params.id).lean();
     if (!product) { res.status(404).json({ error: "Product not found" }); return; }
     res.json(productRes(product));
@@ -62,6 +66,7 @@ router.get("/shop/products/:id", async (req: Request, res: Response) => {
 
 router.put("/shop/products/:id", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Product not found" }); return; }
     const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true }).lean();
     if (!product) { res.status(404).json({ error: "Product not found" }); return; }
     res.json(productRes(product));
@@ -70,6 +75,7 @@ router.put("/shop/products/:id", authenticate, requireRole("admin"), async (req:
 
 router.delete("/shop/products/:id", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Product not found" }); return; }
     await Product.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to delete product" }); }
@@ -156,6 +162,7 @@ router.post("/orders", authenticate, async (req: AuthRequest, res: Response) => 
 
 router.get("/orders/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Order not found" }); return; }
     const order = await Order.findById(req.params.id).lean() as any;
     if (!order) { res.status(404).json({ error: "Order not found" }); return; }
     const user = await User.findById(order.userId).lean() as any;

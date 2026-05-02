@@ -8,7 +8,7 @@
 import type { EventStatus } from "./eventStatus";
 
 export interface Event {
-  id: number;
+  id: string;
   title: string;
   description?: string;
   date: string;

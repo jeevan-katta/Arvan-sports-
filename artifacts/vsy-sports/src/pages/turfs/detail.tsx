@@ -14,13 +14,13 @@ import { cn } from "@/lib/utils";
 
 export default function TurfDetail() {
   const { id } = useParams();
-  const turfId = parseInt(id || "0", 10);
+  const turfId = id || "";
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedSlotIds, setSelectedSlotIds] = useState<number[]>([]);
+  const [selectedSlotIds, setSelectedSlotIds] = useState<string[]>([]);
   const [playerCount, setPlayerCount] = useState(10);
 
   const { data: turf, isLoading: isLoadingTurf } = useGetTurf(turfId, { query: { enabled: !!turfId } });
@@ -38,7 +38,7 @@ export default function TurfDetail() {
     return true;
   }, [selectedSlotIds, slots]);
 
-  const toggleSlot = (slotId: number) => {
+  const toggleSlot = (slotId: string) => {
     setSelectedSlotIds(prev => prev.includes(slotId) ? prev.filter(id => id !== slotId) : [...prev, slotId]);
   };
 
@@ -56,7 +56,7 @@ export default function TurfDetail() {
 
     try {
       const booking = await createBooking.mutateAsync({
-        data: { turfId, slotIds: selectedSlotIds, date: format(selectedDate, "yyyy-MM-dd"), playerCount } as any
+        data: { turfId: turfId as any, slotIds: selectedSlotIds, date: format(selectedDate, "yyyy-MM-dd"), playerCount } as any
       });
       toast({ title: "Slots Reserved!", description: `${selectedSlotIds.length} slot${selectedSlotIds.length > 1 ? "s" : ""} reserved for 10 min. Complete payment to confirm.` });
       setLocation(`/booking/${booking.id}`);
@@ -77,7 +77,7 @@ export default function TurfDetail() {
   if (isLoadingTurf) return <div className="h-screen flex items-center justify-center">Loading...</div>;
   if (!turf) return <div className="h-screen flex items-center justify-center">Turf not found</div>;
 
-  const selectedSlots = (slots || []).filter(s => selectedSlotIds.includes(s.id)).sort((a, b) => a.startTime.localeCompare(b.startTime));
+  const selectedSlots = (slots || []).filter(s => selectedSlotIds.includes(s.id as string)).sort((a, b) => a.startTime.localeCompare(b.startTime));
   const totalPrice = selectedSlotIds.length * (turf.pricePerHour || 0);
   const advancePrice = Math.round(totalPrice * 0.3);
 

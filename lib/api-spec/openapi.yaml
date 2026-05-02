@@ -151,7 +151,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Turf detail
@@ -168,7 +168,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       requestBody:
         required: true
         content:
@@ -191,7 +191,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Deleted
@@ -210,7 +210,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
         - name: date
           in: query
           required: true
@@ -234,7 +234,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       requestBody:
         required: true
         content:
@@ -259,7 +259,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       requestBody:
         required: true
         content:
@@ -327,7 +327,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Booking
@@ -344,7 +344,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Cancelled
@@ -363,7 +363,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Payment order created
@@ -382,7 +382,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       requestBody:
         required: true
         content:
@@ -454,7 +454,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Post
@@ -471,7 +471,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Deleted
@@ -490,7 +490,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Joined
@@ -509,7 +509,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Messages
@@ -528,7 +528,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       requestBody:
         required: true
         content:
@@ -591,7 +591,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Event
@@ -608,7 +608,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       requestBody:
         required: true
         content:
@@ -631,7 +631,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Deleted
@@ -650,7 +650,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Joined
@@ -711,7 +711,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Product
@@ -728,7 +728,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       requestBody:
         required: true
         content:
@@ -751,7 +751,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Deleted
@@ -801,7 +801,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Updated cart
@@ -859,7 +859,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Order
@@ -878,7 +878,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       requestBody:
         required: true
         content:
@@ -903,7 +903,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Payment order
@@ -922,7 +922,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       requestBody:
         required: true
         content:
@@ -976,7 +976,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       requestBody:
         required: true
         content:
@@ -1001,7 +1001,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       requestBody:
         required: true
         content:
@@ -1026,7 +1026,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       requestBody:
         required: true
         content:
@@ -1051,7 +1051,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: string
       requestBody:
         required: true
         content:
@@ -1141,7 +1141,7 @@ components:
       required: [id, name, email, role]
       properties:
         id:
-          type: integer
+          type: string
         name:
           type: string
         email:
@@ -1164,7 +1164,7 @@ components:
       required: [id, name, pricePerHour, ownerId]
       properties:
         id:
-          type: integer
+          type: string
         name:
           type: string
         description:
@@ -1247,9 +1247,9 @@ components:
       required: [id, turfId, startTime, endTime, date, isBooked]
       properties:
         id:
-          type: integer
+          type: string
         turfId:
-          type: integer
+          type: string
         startTime:
           type: string
         endTime:
@@ -1279,11 +1279,11 @@ components:
       required: [id, turfId, userId, rating]
       properties:
         id:
-          type: integer
+          type: string
         turfId:
-          type: integer
+          type: string
         userId:
-          type: integer
+          type: string
         userName:
           type: string
         userAvatar:
@@ -1310,9 +1310,9 @@ components:
       required: [id, turfId, userId, slotId, date, totalPrice, status]
       properties:
         id:
-          type: integer
+          type: string
         turfId:
-          type: integer
+          type: string
         turfName:
           type: string
         turfImage:
@@ -1320,11 +1320,11 @@ components:
         turfArea:
           type: string
         userId:
-          type: integer
+          type: string
         userName:
           type: string
         slotId:
-          type: integer
+          type: string
         startTime:
           type: string
         endTime:
@@ -1347,9 +1347,9 @@ components:
       required: [turfId, slotId, date]
       properties:
         turfId:
-          type: integer
+          type: string
         slotId:
-          type: integer
+          type: string
         date:
           type: string
 
@@ -1383,9 +1383,9 @@ components:
       required: [id, userId, title, status]
       properties:
         id:
-          type: integer
+          type: string
         userId:
-          type: integer
+          type: string
         userName:
           type: string
         userAvatar:
@@ -1458,11 +1458,11 @@ components:
       required: [id, postId, userId, content]
       properties:
         id:
-          type: integer
+          type: string
         postId:
-          type: integer
+          type: string
         userId:
-          type: integer
+          type: string
         userName:
           type: string
         userAvatar:
@@ -1485,7 +1485,7 @@ components:
       required: [id, title, date]
       properties:
         id:
-          type: integer
+          type: string
         title:
           type: string
         description:
@@ -1559,7 +1559,7 @@ components:
       required: [id, name, price, category]
       properties:
         id:
-          type: integer
+          type: string
         name:
           type: string
         description:
@@ -1626,7 +1626,7 @@ components:
       required: [productId, name, price, quantity]
       properties:
         productId:
-          type: integer
+          type: string
         name:
           type: string
         image:
@@ -1643,7 +1643,7 @@ components:
       required: [productId, quantity]
       properties:
         productId:
-          type: integer
+          type: string
         quantity:
           type: integer
 
@@ -1653,9 +1653,9 @@ components:
       required: [id, userId, items, totalAmount, status]
       properties:
         id:
-          type: integer
+          type: string
         userId:
-          type: integer
+          type: string
         userName:
           type: string
         items:
@@ -1680,7 +1680,7 @@ components:
       required: [productId, name, price, quantity]
       properties:
         productId:
-          type: integer
+          type: string
         name:
           type: string
         image:

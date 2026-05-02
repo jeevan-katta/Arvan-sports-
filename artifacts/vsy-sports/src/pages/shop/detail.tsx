@@ -11,7 +11,7 @@ import { getGetCartQueryKey } from "@workspace/api-client-react";
 
 export default function ProductDetail() {
   const { id } = useParams();
-  const productId = parseInt(id || "0", 10);
+  const productId = id || "";
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();

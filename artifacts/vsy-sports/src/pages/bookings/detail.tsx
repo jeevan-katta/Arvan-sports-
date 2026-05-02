@@ -30,7 +30,7 @@ function useCountdown(expiresAt: string | undefined) {
 
 export default function BookingDetail() {
   const { id } = useParams();
-  const bookingId = parseInt(id || "0", 10);
+  const bookingId = id || "";
   const { toast } = useToast();
   const { user, token } = useAuth();
   const queryClient = useQueryClient();

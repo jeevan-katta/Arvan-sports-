@@ -7,9 +7,9 @@
  */
 
 export interface Message {
-  id: number;
-  postId: number;
-  userId: number;
+  id: string;
+  postId: string;
+  userId: string;
   userName?: string;
   userAvatar?: string;
   content: string;

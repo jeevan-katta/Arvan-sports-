@@ -7,8 +7,8 @@
  */
 
 export interface TimeSlot {
-  id: number;
-  turfId: number;
+  id: string;
+  turfId: string;
   startTime: string;
   endTime: string;
   date: string;

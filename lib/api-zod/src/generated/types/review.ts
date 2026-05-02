@@ -7,9 +7,9 @@
  */
 
 export interface Review {
-  id: number;
-  turfId: number;
-  userId: number;
+  id: string;
+  turfId: string;
+  userId: string;
   userName?: string;
   userAvatar?: string;
   rating: number;

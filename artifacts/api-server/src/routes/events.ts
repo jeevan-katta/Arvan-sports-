@@ -1,6 +1,9 @@
 import { Router, Request, Response } from "express";
+import { Types } from "mongoose";
 import { Event, EventParticipant } from "@workspace/db";
 import { authenticate, requireRole, AuthRequest } from "../middlewares/auth";
+
+const isValidId = (id: string) => Types.ObjectId.isValid(id);
 
 const router = Router();
 
@@ -33,6 +36,7 @@ router.post("/events", authenticate, requireRole("admin"), async (req: AuthReque
 
 router.get("/events/:id", async (req: Request, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Event not found" }); return; }
     const event = await Event.findById(req.params.id).lean();
     if (!event) { res.status(404).json({ error: "Event not found" }); return; }
     const participants = await EventParticipant.find({ eventId: req.params.id }).lean();
@@ -42,6 +46,7 @@ router.get("/events/:id", async (req: Request, res: Response) => {
 
 router.put("/events/:id", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Event not found" }); return; }
     const event = await Event.findByIdAndUpdate(req.params.id, req.body, { new: true }).lean();
     if (!event) { res.status(404).json({ error: "Event not found" }); return; }
     res.json(eventRes(event));
@@ -50,6 +55,7 @@ router.put("/events/:id", authenticate, requireRole("admin"), async (req: AuthRe
 
 router.delete("/events/:id", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Event not found" }); return; }
     await Event.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to delete event" }); }
@@ -57,6 +63,7 @@ router.delete("/events/:id", authenticate, requireRole("admin"), async (req: Aut
 
 router.post("/events/:id/join", authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Event not found" }); return; }
     const existing = await EventParticipant.findOne({ eventId: req.params.id, userId: req.user!.id });
     if (!existing) {
       await EventParticipant.create({ eventId: req.params.id, userId: req.user!.id });

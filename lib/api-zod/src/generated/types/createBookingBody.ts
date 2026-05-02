@@ -7,7 +7,7 @@
  */
 
 export interface CreateBookingBody {
-  turfId: number;
-  slotId: number;
+  turfId: string;
+  slotId: string;
   date: string;
 }

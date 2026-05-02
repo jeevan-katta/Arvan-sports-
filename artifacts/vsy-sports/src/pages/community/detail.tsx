@@ -19,7 +19,7 @@ import { getGetPostMessagesQueryKey, getGetPostQueryKey } from "@workspace/api-c
 
 export default function PostDetail() {
   const { id } = useParams();
-  const postId = parseInt(id || "0", 10);
+  const postId = id || "";
   const { toast } = useToast();
   const queryClient = useQueryClient();
   

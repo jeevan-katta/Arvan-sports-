@@ -8,7 +8,7 @@
 import type { TurfStatus } from "./turfStatus";
 
 export interface Turf {
-  id: number;
+  id: string;
   name: string;
   description?: string;
   pricePerHour: number;

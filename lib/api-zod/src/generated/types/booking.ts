@@ -9,14 +9,14 @@ import type { BookingPaymentStatus } from "./bookingPaymentStatus";
 import type { BookingStatus } from "./bookingStatus";
 
 export interface Booking {
-  id: number;
-  turfId: number;
+  id: string;
+  turfId: string;
   turfName?: string;
   turfImage?: string;
   turfArea?: string;
-  userId: number;
+  userId: string;
   userName?: string;
-  slotId: number;
+  slotId: string;
   startTime?: string;
   endTime?: string;
   date: string;

@@ -7,6 +7,6 @@
  */
 
 export interface AddToCartBody {
-  productId: number;
+  productId: string;
   quantity: number;
 }

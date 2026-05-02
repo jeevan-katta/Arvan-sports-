@@ -1,8 +1,11 @@
 import { Router, Response } from "express";
+import { Types } from "mongoose";
 import { Turf, TimeSlot, Booking, User } from "@workspace/db";
 import { authenticate, AuthRequest } from "../middlewares/auth";
 import Razorpay from "razorpay";
 import crypto from "crypto";
+
+const isValidId = (id: string) => Types.ObjectId.isValid(id);
 
 const router = Router();
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || "rzp_test_dummy_key";
@@ -76,6 +79,7 @@ router.post("/bookings", authenticate, async (req: AuthRequest, res: Response) =
 
 router.get("/bookings/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Booking not found" }); return; }
     const booking = await Booking.findById(req.params.id).lean() as any;
     if (!booking) { res.status(404).json({ error: "Booking not found" }); return; }
     const turf = await Turf.findById(booking.turfId).lean() as any;
@@ -86,6 +90,7 @@ router.get("/bookings/:id", authenticate, async (req: AuthRequest, res: Response
 
 router.delete("/bookings/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Booking not found" }); return; }
     const booking = await Booking.findByIdAndUpdate(req.params.id, { status: "cancelled" }, { new: true }).lean();
     if (!booking) { res.status(404).json({ error: "Booking not found" }); return; }
     res.json(bookingRes(booking));
@@ -94,6 +99,7 @@ router.delete("/bookings/:id", authenticate, async (req: AuthRequest, res: Respo
 
 router.post("/bookings/:id/payment", authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Booking not found" }); return; }
     const paymentType = req.body.paymentType || "full";
     const booking = await Booking.findById(req.params.id).lean() as any;
     if (!booking) { res.status(404).json({ error: "Booking not found" }); return; }
@@ -117,6 +123,7 @@ router.post("/bookings/:id/payment", authenticate, async (req: AuthRequest, res:
 
 router.post("/bookings/:id/verify-payment", authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Booking not found" }); return; }
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
     const isDummy = RAZORPAY_KEY_SECRET === "dummy_secret_key";
     if (!isDummy) {

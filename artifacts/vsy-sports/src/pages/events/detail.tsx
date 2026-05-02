@@ -12,7 +12,7 @@ import { getGetEventQueryKey } from "@workspace/api-client-react";
 
 export default function EventDetail() {
   const { id } = useParams();
-  const eventId = parseInt(id || "0", 10);
+  const eventId = id || "";
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();

@@ -1,6 +1,9 @@
 import { Router, Request, Response } from "express";
+import { Types } from "mongoose";
 import { Post, PostJoin, Message, User } from "@workspace/db";
 import { authenticate, AuthRequest } from "../middlewares/auth";
+
+const isValidId = (id: string) => Types.ObjectId.isValid(id);
 
 const router = Router();
 
@@ -41,6 +44,7 @@ router.post("/community/posts", authenticate, async (req: AuthRequest, res: Resp
 
 router.get("/community/posts/:id", async (req: Request, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Post not found" }); return; }
     const post = await Post.findById(req.params.id).populate("userId", "name avatar").lean() as any;
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
     const joins = await PostJoin.find({ postId: req.params.id }).lean();
@@ -60,6 +64,7 @@ router.get("/community/posts/:id", async (req: Request, res: Response) => {
 
 router.delete("/community/posts/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Post not found" }); return; }
     await Post.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to delete post" }); }
@@ -67,6 +72,7 @@ router.delete("/community/posts/:id", authenticate, async (req: AuthRequest, res
 
 router.post("/community/posts/:id/join", authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Post not found" }); return; }
     const existing = await PostJoin.findOne({ postId: req.params.id, userId: req.user!.id });
     if (!existing) await PostJoin.create({ postId: req.params.id, userId: req.user!.id });
     const post = await Post.findById(req.params.id).populate("userId", "name avatar").lean() as any;
@@ -77,6 +83,7 @@ router.post("/community/posts/:id/join", authenticate, async (req: AuthRequest, 
 
 router.get("/community/posts/:id/messages", async (req: Request, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Post not found" }); return; }
     const msgs = await Message.find({ postId: req.params.id }).sort({ createdAt: 1 }).populate("userId", "name avatar").lean();
     res.json(msgs.map((m: any) => ({
       id: m._id.toString(), postId: m.postId?.toString(),
@@ -89,6 +96,7 @@ router.get("/community/posts/:id/messages", async (req: Request, res: Response) 
 
 router.post("/community/posts/:id/messages", authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Post not found" }); return; }
     const { content } = req.body;
     if (!content) { res.status(400).json({ error: "content required" }); return; }
     const msg = await Message.create({ postId: req.params.id, userId: req.user!.id, content });

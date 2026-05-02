@@ -43,7 +43,7 @@ export const UserRole = {
 } as const;
 
 export interface User {
-  id: number;
+  id: string;
   name: string;
   email: string;
   role: UserRole;
@@ -67,7 +67,7 @@ export const TurfStatus = {
 } as const;
 
 export interface Turf {
-  id: number;
+  id: string;
   name: string;
   description?: string;
   pricePerHour: number;
@@ -88,9 +88,9 @@ export interface Turf {
 }
 
 export interface Review {
-  id: number;
-  turfId: number;
-  userId: number;
+  id: string;
+  turfId: string;
+  userId: string;
   userName?: string;
   userAvatar?: string;
   rating: number;
@@ -115,8 +115,8 @@ export interface CreateTurfBody {
 }
 
 export interface TimeSlot {
-  id: number;
-  turfId: number;
+  id: string;
+  turfId: string;
   startTime: string;
   endTime: string;
   date: string;
@@ -152,14 +152,14 @@ export const BookingPaymentStatus = {
 } as const;
 
 export interface Booking {
-  id: number;
-  turfId: number;
+  id: string;
+  turfId: string;
   turfName?: string;
   turfImage?: string;
   turfArea?: string;
-  userId: number;
+  userId: string;
   userName?: string;
-  slotId: number;
+  slotId: string;
   startTime?: string;
   endTime?: string;
   date: string;
@@ -170,8 +170,8 @@ export interface Booking {
 }
 
 export interface CreateBookingBody {
-  turfId: number;
-  slotId: number;
+  turfId: string;
+  slotId: string;
   date: string;
 }
 
@@ -196,8 +196,8 @@ export const PostStatus = {
 } as const;
 
 export interface Post {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   userName?: string;
   userAvatar?: string;
   title: string;
@@ -215,9 +215,9 @@ export interface Post {
 }
 
 export interface Message {
-  id: number;
-  postId: number;
-  userId: number;
+  id: string;
+  postId: string;
+  userId: string;
   userName?: string;
   userAvatar?: string;
   content: string;
@@ -254,7 +254,7 @@ export const EventStatus = {
 } as const;
 
 export interface Event {
-  id: number;
+  id: string;
   title: string;
   description?: string;
   date: string;
@@ -290,7 +290,7 @@ export interface CreateEventBody {
 }
 
 export interface Product {
-  id: number;
+  id: string;
   name: string;
   description?: string;
   price: number;
@@ -316,7 +316,7 @@ export interface CreateProductBody {
 }
 
 export interface CartItem {
-  productId: number;
+  productId: string;
   name: string;
   image?: string;
   price: number;
@@ -331,7 +331,7 @@ export interface Cart {
 }
 
 export interface AddToCartBody {
-  productId: number;
+  productId: string;
   quantity: number;
 }
 
@@ -354,7 +354,7 @@ export const OrderPaymentStatus = {
 } as const;
 
 export interface OrderItem {
-  productId: number;
+  productId: string;
   name: string;
   image?: string;
   price: number;
@@ -362,8 +362,8 @@ export interface OrderItem {
 }
 
 export interface Order {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   userName?: string;
   items: OrderItem[];
   totalAmount: number;

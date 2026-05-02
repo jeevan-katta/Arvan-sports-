@@ -35,7 +35,7 @@ export const LoginBody = zod.object({
 export const LoginResponse = zod.object({
   token: zod.string(),
   user: zod.object({
-    id: zod.number(),
+    id: zod.string(),
     name: zod.string(),
     email: zod.string(),
     role: zod.enum(["user", "turf_owner", "admin"]),
@@ -50,7 +50,7 @@ export const LoginResponse = zod.object({
  * @summary Get current user
  */
 export const GetMeResponse = zod.object({
-  id: zod.number(),
+  id: zod.string(),
   name: zod.string(),
   email: zod.string(),
   role: zod.enum(["user", "turf_owner", "admin"]),
@@ -73,7 +73,7 @@ export const ListTurfsQueryParams = zod.object({
 });
 
 export const ListTurfsResponseItem = zod.object({
-  id: zod.number(),
+  id: zod.string(),
   name: zod.string(),
   description: zod.string().optional(),
   pricePerHour: zod.number(),
@@ -113,12 +113,12 @@ export const CreateTurfBody = zod.object({
  * @summary Get turf details
  */
 export const GetTurfParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const GetTurfResponse = zod
   .object({
-    id: zod.number(),
+    id: zod.string(),
     name: zod.string(),
     description: zod.string().optional(),
     pricePerHour: zod.number(),
@@ -142,9 +142,9 @@ export const GetTurfResponse = zod
       reviews: zod
         .array(
           zod.object({
-            id: zod.number(),
-            turfId: zod.number(),
-            userId: zod.number(),
+            id: zod.string(),
+            turfId: zod.string(),
+            userId: zod.string(),
             userName: zod.string().optional(),
             userAvatar: zod.string().optional(),
             rating: zod.number(),
@@ -160,7 +160,7 @@ export const GetTurfResponse = zod
  * @summary Update turf
  */
 export const UpdateTurfParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const UpdateTurfBody = zod.object({
@@ -176,7 +176,7 @@ export const UpdateTurfBody = zod.object({
 });
 
 export const UpdateTurfResponse = zod.object({
-  id: zod.number(),
+  id: zod.string(),
   name: zod.string(),
   description: zod.string().optional(),
   pricePerHour: zod.number(),
@@ -200,7 +200,7 @@ export const UpdateTurfResponse = zod.object({
  * @summary Delete turf
  */
 export const DeleteTurfParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const DeleteTurfResponse = zod.object({
@@ -212,7 +212,7 @@ export const DeleteTurfResponse = zod.object({
  * @summary Get available slots for a turf on a date
  */
 export const GetTurfSlotsParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const GetTurfSlotsQueryParams = zod.object({
@@ -220,8 +220,8 @@ export const GetTurfSlotsQueryParams = zod.object({
 });
 
 export const GetTurfSlotsResponseItem = zod.object({
-  id: zod.number(),
-  turfId: zod.number(),
+  id: zod.string(),
+  turfId: zod.string(),
   startTime: zod.string(),
   endTime: zod.string(),
   date: zod.string(),
@@ -234,7 +234,7 @@ export const GetTurfSlotsResponse = zod.array(GetTurfSlotsResponseItem);
  * @summary Create a time slot for a turf
  */
 export const CreateTurfSlotParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const CreateTurfSlotBody = zod.object({
@@ -247,7 +247,7 @@ export const CreateTurfSlotBody = zod.object({
  * @summary Leave a review for a turf
  */
 export const ReviewTurfParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const ReviewTurfBody = zod.object({
@@ -264,14 +264,14 @@ export const ListBookingsQueryParams = zod.object({
 });
 
 export const ListBookingsResponseItem = zod.object({
-  id: zod.number(),
-  turfId: zod.number(),
+  id: zod.string(),
+  turfId: zod.string(),
   turfName: zod.string().optional(),
   turfImage: zod.string().optional(),
   turfArea: zod.string().optional(),
-  userId: zod.number(),
+  userId: zod.string(),
   userName: zod.string().optional(),
-  slotId: zod.number(),
+  slotId: zod.string(),
   startTime: zod.string().optional(),
   endTime: zod.string().optional(),
   date: zod.string(),
@@ -286,8 +286,8 @@ export const ListBookingsResponse = zod.array(ListBookingsResponseItem);
  * @summary Book a turf slot
  */
 export const CreateBookingBody = zod.object({
-  turfId: zod.number(),
-  slotId: zod.number(),
+  turfId: zod.string(),
+  slotId: zod.string(),
   date: zod.string(),
 });
 
@@ -295,18 +295,18 @@ export const CreateBookingBody = zod.object({
  * @summary Get booking details
  */
 export const GetBookingParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const GetBookingResponse = zod.object({
-  id: zod.number(),
-  turfId: zod.number(),
+  id: zod.string(),
+  turfId: zod.string(),
   turfName: zod.string().optional(),
   turfImage: zod.string().optional(),
   turfArea: zod.string().optional(),
-  userId: zod.number(),
+  userId: zod.string(),
   userName: zod.string().optional(),
-  slotId: zod.number(),
+  slotId: zod.string(),
   startTime: zod.string().optional(),
   endTime: zod.string().optional(),
   date: zod.string(),
@@ -320,18 +320,18 @@ export const GetBookingResponse = zod.object({
  * @summary Cancel a booking
  */
 export const CancelBookingParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const CancelBookingResponse = zod.object({
-  id: zod.number(),
-  turfId: zod.number(),
+  id: zod.string(),
+  turfId: zod.string(),
   turfName: zod.string().optional(),
   turfImage: zod.string().optional(),
   turfArea: zod.string().optional(),
-  userId: zod.number(),
+  userId: zod.string(),
   userName: zod.string().optional(),
-  slotId: zod.number(),
+  slotId: zod.string(),
   startTime: zod.string().optional(),
   endTime: zod.string().optional(),
   date: zod.string(),
@@ -345,7 +345,7 @@ export const CancelBookingResponse = zod.object({
  * @summary Create payment for booking (Razorpay)
  */
 export const CreateBookingPaymentParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const CreateBookingPaymentResponse = zod.object({
@@ -359,7 +359,7 @@ export const CreateBookingPaymentResponse = zod.object({
  * @summary Verify Razorpay payment signature
  */
 export const VerifyBookingPaymentParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const VerifyBookingPaymentBody = zod.object({
@@ -369,14 +369,14 @@ export const VerifyBookingPaymentBody = zod.object({
 });
 
 export const VerifyBookingPaymentResponse = zod.object({
-  id: zod.number(),
-  turfId: zod.number(),
+  id: zod.string(),
+  turfId: zod.string(),
   turfName: zod.string().optional(),
   turfImage: zod.string().optional(),
   turfArea: zod.string().optional(),
-  userId: zod.number(),
+  userId: zod.string(),
   userName: zod.string().optional(),
-  slotId: zod.number(),
+  slotId: zod.string(),
   startTime: zod.string().optional(),
   endTime: zod.string().optional(),
   date: zod.string(),
@@ -396,8 +396,8 @@ export const ListPostsQueryParams = zod.object({
 });
 
 export const ListPostsResponseItem = zod.object({
-  id: zod.number(),
-  userId: zod.number(),
+  id: zod.string(),
+  userId: zod.string(),
   userName: zod.string().optional(),
   userAvatar: zod.string().optional(),
   title: zod.string(),
@@ -434,13 +434,13 @@ export const CreatePostBody = zod.object({
  * @summary Get post details
  */
 export const GetPostParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const GetPostResponse = zod
   .object({
-    id: zod.number(),
-    userId: zod.number(),
+    id: zod.string(),
+    userId: zod.string(),
     userName: zod.string().optional(),
     userAvatar: zod.string().optional(),
     title: zod.string(),
@@ -461,7 +461,7 @@ export const GetPostResponse = zod
       joinedUsers: zod
         .array(
           zod.object({
-            id: zod.number(),
+            id: zod.string(),
             name: zod.string(),
             email: zod.string(),
             role: zod.enum(["user", "turf_owner", "admin"]),
@@ -475,9 +475,9 @@ export const GetPostResponse = zod
       messages: zod
         .array(
           zod.object({
-            id: zod.number(),
-            postId: zod.number(),
-            userId: zod.number(),
+            id: zod.string(),
+            postId: zod.string(),
+            userId: zod.string(),
             userName: zod.string().optional(),
             userAvatar: zod.string().optional(),
             content: zod.string(),
@@ -492,7 +492,7 @@ export const GetPostResponse = zod
  * @summary Delete a post
  */
 export const DeletePostParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const DeletePostResponse = zod.object({
@@ -504,12 +504,12 @@ export const DeletePostResponse = zod.object({
  * @summary Join a match post
  */
 export const JoinPostParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const JoinPostResponse = zod.object({
-  id: zod.number(),
-  userId: zod.number(),
+  id: zod.string(),
+  userId: zod.string(),
   userName: zod.string().optional(),
   userAvatar: zod.string().optional(),
   title: zod.string(),
@@ -530,13 +530,13 @@ export const JoinPostResponse = zod.object({
  * @summary Get chat messages for a post
  */
 export const GetPostMessagesParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const GetPostMessagesResponseItem = zod.object({
-  id: zod.number(),
-  postId: zod.number(),
-  userId: zod.number(),
+  id: zod.string(),
+  postId: zod.string(),
+  userId: zod.string(),
   userName: zod.string().optional(),
   userAvatar: zod.string().optional(),
   content: zod.string(),
@@ -548,7 +548,7 @@ export const GetPostMessagesResponse = zod.array(GetPostMessagesResponseItem);
  * @summary Send a chat message to a post
  */
 export const SendPostMessageParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const SendPostMessageBody = zod.object({
@@ -563,7 +563,7 @@ export const ListEventsQueryParams = zod.object({
 });
 
 export const ListEventsResponseItem = zod.object({
-  id: zod.number(),
+  id: zod.string(),
   title: zod.string(),
   description: zod.string().optional(),
   date: zod.string(),
@@ -602,12 +602,12 @@ export const CreateEventBody = zod.object({
  * @summary Get event details
  */
 export const GetEventParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const GetEventResponse = zod
   .object({
-    id: zod.number(),
+    id: zod.string(),
     title: zod.string(),
     description: zod.string().optional(),
     date: zod.string(),
@@ -628,7 +628,7 @@ export const GetEventResponse = zod
       participants: zod
         .array(
           zod.object({
-            id: zod.number(),
+            id: zod.string(),
             name: zod.string(),
             email: zod.string(),
             role: zod.enum(["user", "turf_owner", "admin"]),
@@ -646,7 +646,7 @@ export const GetEventResponse = zod
  * @summary Update an event (admin)
  */
 export const UpdateEventParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const UpdateEventBody = zod.object({
@@ -664,7 +664,7 @@ export const UpdateEventBody = zod.object({
 });
 
 export const UpdateEventResponse = zod.object({
-  id: zod.number(),
+  id: zod.string(),
   title: zod.string(),
   description: zod.string().optional(),
   date: zod.string(),
@@ -685,7 +685,7 @@ export const UpdateEventResponse = zod.object({
  * @summary Delete an event (admin)
  */
 export const DeleteEventParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const DeleteEventResponse = zod.object({
@@ -697,11 +697,11 @@ export const DeleteEventResponse = zod.object({
  * @summary Join an event
  */
 export const JoinEventParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const JoinEventResponse = zod.object({
-  id: zod.number(),
+  id: zod.string(),
   title: zod.string(),
   description: zod.string().optional(),
   date: zod.string(),
@@ -727,7 +727,7 @@ export const ListProductsQueryParams = zod.object({
 });
 
 export const ListProductsResponseItem = zod.object({
-  id: zod.number(),
+  id: zod.string(),
   name: zod.string(),
   description: zod.string().optional(),
   price: zod.number(),
@@ -760,11 +760,11 @@ export const CreateProductBody = zod.object({
  * @summary Get product details
  */
 export const GetProductParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const GetProductResponse = zod.object({
-  id: zod.number(),
+  id: zod.string(),
   name: zod.string(),
   description: zod.string().optional(),
   price: zod.number(),
@@ -782,7 +782,7 @@ export const GetProductResponse = zod.object({
  * @summary Update a product (admin)
  */
 export const UpdateProductParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const UpdateProductBody = zod.object({
@@ -797,7 +797,7 @@ export const UpdateProductBody = zod.object({
 });
 
 export const UpdateProductResponse = zod.object({
-  id: zod.number(),
+  id: zod.string(),
   name: zod.string(),
   description: zod.string().optional(),
   price: zod.number(),
@@ -815,7 +815,7 @@ export const UpdateProductResponse = zod.object({
  * @summary Delete a product (admin)
  */
 export const DeleteProductParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const DeleteProductResponse = zod.object({
@@ -829,7 +829,7 @@ export const DeleteProductResponse = zod.object({
 export const GetCartResponse = zod.object({
   items: zod.array(
     zod.object({
-      productId: zod.number(),
+      productId: zod.string(),
       name: zod.string(),
       image: zod.string().optional(),
       price: zod.number(),
@@ -845,14 +845,14 @@ export const GetCartResponse = zod.object({
  * @summary Add item to cart
  */
 export const AddToCartBody = zod.object({
-  productId: zod.number(),
+  productId: zod.string(),
   quantity: zod.number(),
 });
 
 export const AddToCartResponse = zod.object({
   items: zod.array(
     zod.object({
-      productId: zod.number(),
+      productId: zod.string(),
       name: zod.string(),
       image: zod.string().optional(),
       price: zod.number(),
@@ -868,13 +868,13 @@ export const AddToCartResponse = zod.object({
  * @summary Remove item from cart
  */
 export const RemoveFromCartParams = zod.object({
-  productId: zod.coerce.number(),
+  productId: zod.coerce.string(),
 });
 
 export const RemoveFromCartResponse = zod.object({
   items: zod.array(
     zod.object({
-      productId: zod.number(),
+      productId: zod.string(),
       name: zod.string(),
       image: zod.string().optional(),
       price: zod.number(),
@@ -896,12 +896,12 @@ export const ListOrdersQueryParams = zod.object({
 });
 
 export const ListOrdersResponseItem = zod.object({
-  id: zod.number(),
-  userId: zod.number(),
+  id: zod.string(),
+  userId: zod.string(),
   userName: zod.string().optional(),
   items: zod.array(
     zod.object({
-      productId: zod.number(),
+      productId: zod.string(),
       name: zod.string(),
       image: zod.string().optional(),
       price: zod.number(),
@@ -933,16 +933,16 @@ export const CreateOrderBody = zod.object({
  * @summary Get order details
  */
 export const GetOrderParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const GetOrderResponse = zod.object({
-  id: zod.number(),
-  userId: zod.number(),
+  id: zod.string(),
+  userId: zod.string(),
   userName: zod.string().optional(),
   items: zod.array(
     zod.object({
-      productId: zod.number(),
+      productId: zod.string(),
       name: zod.string(),
       image: zod.string().optional(),
       price: zod.number(),
@@ -966,7 +966,7 @@ export const GetOrderResponse = zod.object({
  * @summary Update order status (admin)
  */
 export const UpdateOrderStatusParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const UpdateOrderStatusBody = zod.object({
@@ -980,12 +980,12 @@ export const UpdateOrderStatusBody = zod.object({
 });
 
 export const UpdateOrderStatusResponse = zod.object({
-  id: zod.number(),
-  userId: zod.number(),
+  id: zod.string(),
+  userId: zod.string(),
   userName: zod.string().optional(),
   items: zod.array(
     zod.object({
-      productId: zod.number(),
+      productId: zod.string(),
       name: zod.string(),
       image: zod.string().optional(),
       price: zod.number(),
@@ -1009,7 +1009,7 @@ export const UpdateOrderStatusResponse = zod.object({
  * @summary Create Razorpay order for shop checkout
  */
 export const CreateOrderPaymentParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const CreateOrderPaymentResponse = zod.object({
@@ -1023,7 +1023,7 @@ export const CreateOrderPaymentResponse = zod.object({
  * @summary Verify Razorpay payment for order
  */
 export const VerifyOrderPaymentParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const VerifyOrderPaymentBody = zod.object({
@@ -1033,12 +1033,12 @@ export const VerifyOrderPaymentBody = zod.object({
 });
 
 export const VerifyOrderPaymentResponse = zod.object({
-  id: zod.number(),
-  userId: zod.number(),
+  id: zod.string(),
+  userId: zod.string(),
   userName: zod.string().optional(),
   items: zod.array(
     zod.object({
-      productId: zod.number(),
+      productId: zod.string(),
       name: zod.string(),
       image: zod.string().optional(),
       price: zod.number(),
@@ -1071,14 +1071,14 @@ export const GetAdminStatsResponse = zod.object({
   totalOrders: zod.number().optional(),
   recentBookings: zod.array(
     zod.object({
-      id: zod.number(),
-      turfId: zod.number(),
+      id: zod.string(),
+      turfId: zod.string(),
       turfName: zod.string().optional(),
       turfImage: zod.string().optional(),
       turfArea: zod.string().optional(),
-      userId: zod.number(),
+      userId: zod.string(),
       userName: zod.string().optional(),
-      slotId: zod.number(),
+      slotId: zod.string(),
       startTime: zod.string().optional(),
       endTime: zod.string().optional(),
       date: zod.string(),
@@ -1094,7 +1094,7 @@ export const GetAdminStatsResponse = zod.object({
  * @summary List all users
  */
 export const ListUsersResponseItem = zod.object({
-  id: zod.number(),
+  id: zod.string(),
   name: zod.string(),
   email: zod.string(),
   role: zod.enum(["user", "turf_owner", "admin"]),
@@ -1109,7 +1109,7 @@ export const ListUsersResponse = zod.array(ListUsersResponseItem);
  * @summary Block or unblock a user
  */
 export const BlockUserParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const BlockUserBody = zod.object({
@@ -1117,7 +1117,7 @@ export const BlockUserBody = zod.object({
 });
 
 export const BlockUserResponse = zod.object({
-  id: zod.number(),
+  id: zod.string(),
   name: zod.string(),
   email: zod.string(),
   role: zod.enum(["user", "turf_owner", "admin"]),
@@ -1131,7 +1131,7 @@ export const BlockUserResponse = zod.object({
  * @summary Update user role
  */
 export const UpdateUserRoleParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const UpdateUserRoleBody = zod.object({
@@ -1139,7 +1139,7 @@ export const UpdateUserRoleBody = zod.object({
 });
 
 export const UpdateUserRoleResponse = zod.object({
-  id: zod.number(),
+  id: zod.string(),
   name: zod.string(),
   email: zod.string(),
   role: zod.enum(["user", "turf_owner", "admin"]),
@@ -1153,7 +1153,7 @@ export const UpdateUserRoleResponse = zod.object({
  * @summary Approve or reject a turf
  */
 export const ApproveTurfParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const ApproveTurfBody = zod.object({
@@ -1161,7 +1161,7 @@ export const ApproveTurfBody = zod.object({
 });
 
 export const ApproveTurfResponse = zod.object({
-  id: zod.number(),
+  id: zod.string(),
   name: zod.string(),
   description: zod.string().optional(),
   pricePerHour: zod.number(),
@@ -1185,7 +1185,7 @@ export const ApproveTurfResponse = zod.object({
  * @summary Feature or unfeature a turf
  */
 export const FeatureTurfParams = zod.object({
-  id: zod.coerce.number(),
+  id: zod.coerce.string(),
 });
 
 export const FeatureTurfBody = zod.object({
@@ -1193,7 +1193,7 @@ export const FeatureTurfBody = zod.object({
 });
 
 export const FeatureTurfResponse = zod.object({
-  id: zod.number(),
+  id: zod.string(),
   name: zod.string(),
   description: zod.string().optional(),
   pricePerHour: zod.number(),

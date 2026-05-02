@@ -10,8 +10,8 @@ import type { OrderPaymentStatus } from "./orderPaymentStatus";
 import type { OrderStatus } from "./orderStatus";
 
 export interface Order {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   userName?: string;
   items: OrderItem[];
   totalAmount: number;
