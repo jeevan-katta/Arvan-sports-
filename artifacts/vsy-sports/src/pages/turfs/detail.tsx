@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
-import { format } from "date-fns";
+import { format, isToday } from "date-fns";
 import { useGetTurf, useGetTurfSlots, useCreateBooking } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,6 +11,25 @@ import { MapPin, Star, ChevronLeft, Calendar as CalendarIcon, Info, Users, Car, 
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+
+/** Convert "HH:MM" 24hr string to "h AM/PM" or "h:MM AM/PM" */
+function to12hr(time: string): string {
+  const [hStr, mStr] = time.split(":");
+  const h = parseInt(hStr, 10);
+  const m = parseInt(mStr, 10);
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return m === 0 ? `${h12} ${period}` : `${h12}:${mStr} ${period}`;
+}
+
+/** Returns true if a slot's start time (HH:MM) is in the past relative to now */
+function isPastSlot(startTime: string, date: Date): boolean {
+  if (!isToday(date)) return false;
+  const now = new Date();
+  const [hStr, mStr] = startTime.split(":");
+  return parseInt(hStr, 10) < now.getHours() ||
+    (parseInt(hStr, 10) === now.getHours() && parseInt(mStr, 10) <= now.getMinutes());
+}
 
 export default function TurfDetail() {
   const { id } = useParams();
@@ -198,7 +217,7 @@ export default function TurfDetail() {
                 {isConsecutive && selectedSlots.length > 0 && (
                   <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    {selectedSlots[0].startTime} – {selectedSlots[selectedSlots.length - 1].endTime}
+                    {to12hr(selectedSlots[0].startTime)} – {to12hr(selectedSlots[selectedSlots.length - 1].endTime)}
                   </p>
                 )}
               </div>
@@ -210,32 +229,33 @@ export default function TurfDetail() {
             <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6].map(i => <div key={i} className="h-14 bg-muted animate-pulse rounded-lg" />)}</div>
           ) : slots && slots.length > 0 ? (
             <div className="grid grid-cols-3 gap-2">
-              {slots.map(slot => {
-                const isSelected = selectedSlotIds.includes(slot.id);
-                const isPending = !slot.isBooked && false; // server returns isBooked correctly
-                return (
-                  <button
-                    key={slot.id}
-                    disabled={!!slot.isBooked}
-                    onClick={() => !slot.isBooked && toggleSlot(slot.id)}
-                    className={cn(
-                      "h-14 flex flex-col items-center justify-center p-1 rounded-xl border-2 relative overflow-hidden transition-all",
-                      isSelected ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/20"
-                        : slot.isBooked ? "bg-muted/50 border-muted opacity-50 cursor-not-allowed"
-                        : "bg-card border-border hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
-                    )}
-                  >
-                    {isSelected && <span className="absolute top-1 right-1"><Check className="h-3 w-3" /></span>}
-                    <span className="text-sm font-bold">{slot.startTime}</span>
-                    <span className={cn("text-[10px] mt-0.5", isSelected ? "opacity-80" : "text-muted-foreground")}>₹{slot.price || turf.pricePerHour}</span>
-                    {slot.isBooked && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-background/80">
-                        <span className="text-[10px] font-bold text-destructive">BOOKED</span>
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
+              {slots
+                .filter(slot => !isPastSlot(slot.startTime, selectedDate))
+                .map(slot => {
+                  const isSelected = selectedSlotIds.includes(slot.id);
+                  return (
+                    <button
+                      key={slot.id}
+                      disabled={!!slot.isBooked}
+                      onClick={() => !slot.isBooked && toggleSlot(slot.id)}
+                      className={cn(
+                        "h-14 flex flex-col items-center justify-center p-1 rounded-xl border-2 relative overflow-hidden transition-all",
+                        isSelected ? "bg-primary border-primary text-primary-foreground shadow-md shadow-primary/20"
+                          : slot.isBooked ? "bg-muted/50 border-muted opacity-50 cursor-not-allowed"
+                          : "bg-card border-border hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
+                      )}
+                    >
+                      {isSelected && <span className="absolute top-1 right-1"><Check className="h-3 w-3" /></span>}
+                      <span className="text-sm font-bold">{to12hr(slot.startTime)}</span>
+                      <span className={cn("text-[10px] mt-0.5", isSelected ? "opacity-80" : "text-muted-foreground")}>₹{slot.price || turf.pricePerHour}</span>
+                      {slot.isBooked && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-background/80">
+                          <span className="text-[10px] font-bold text-destructive">BOOKED</span>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
             </div>
           ) : (
             <div className="text-center p-6 bg-muted/30 rounded-xl border border-dashed border-muted-foreground/30">

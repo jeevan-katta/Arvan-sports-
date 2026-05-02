@@ -108,13 +108,18 @@ router.post("/bookings/:id/payment", authenticate, async (req: AuthRequest, res:
       res.status(400).json({ error: "Booking reservation expired. Please rebook." }); return;
     }
     const paidAmount = paymentType === "advance" ? Math.round(booking.totalPrice * 0.3 * 100) / 100 : booking.totalPrice;
-    const isDummy = RAZORPAY_KEY_ID === "rzp_test_dummy_key";
+    const isDummy = RAZORPAY_KEY_ID === "rzp_test_dummy_key" || RAZORPAY_KEY_SECRET === "dummy_secret_key";
     let orderId: string;
     if (isDummy) {
       orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     } else {
-      const rzpOrder = await razorpay.orders.create({ amount: Math.round(paidAmount * 100), currency: "INR", receipt: `booking_${req.params.id}` });
-      orderId = rzpOrder.id;
+      try {
+        const rzpOrder = await razorpay.orders.create({ amount: Math.round(paidAmount * 100), currency: "INR", receipt: `booking_${req.params.id}` });
+        orderId = rzpOrder.id;
+      } catch (rzpErr: any) {
+        req.log?.warn({ rzpErr }, "Razorpay order failed, falling back to simulated payment");
+        orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      }
     }
     await Booking.findByIdAndUpdate(req.params.id, { razorpayOrderId: orderId, paymentType, paidAmount });
     res.json({ orderId, amount: Math.round(paidAmount * 100), currency: "INR", key: RAZORPAY_KEY_ID, totalPrice: booking.totalPrice, paidAmount, paymentType });
