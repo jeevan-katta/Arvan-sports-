@@ -1,6 +1,9 @@
 import { Router, Request, Response } from "express";
+import { Types } from "mongoose";
 import { Turf, TimeSlot, Review, Booking } from "@workspace/db";
 import { authenticate, requireRole, AuthRequest } from "../middlewares/auth";
+
+function isValidId(id: string) { return Types.ObjectId.isValid(id); }
 
 const router = Router();
 
@@ -55,6 +58,7 @@ router.post("/turfs", authenticate, requireRole("turf_owner", "admin"), async (r
 
 router.get("/turfs/:id", async (req: Request, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Turf not found" }); return; }
     const turf = await Turf.findById(req.params.id).populate("ownerId", "name").lean() as any;
     if (!turf) { res.status(404).json({ error: "Turf not found" }); return; }
     const reviews = await Review.find({ turfId: req.params.id }).populate("userId", "name avatar").lean();
@@ -71,6 +75,7 @@ router.get("/turfs/:id", async (req: Request, res: Response) => {
 
 router.put("/turfs/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Turf not found" }); return; }
     const turf = await Turf.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!turf) { res.status(404).json({ error: "Turf not found" }); return; }
     res.json(turfRes(turf));
@@ -79,6 +84,7 @@ router.put("/turfs/:id", authenticate, async (req: AuthRequest, res: Response) =
 
 router.delete("/turfs/:id", authenticate, requireRole("admin", "turf_owner"), async (req: AuthRequest, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Turf not found" }); return; }
     await Turf.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to delete turf" }); }
@@ -86,6 +92,7 @@ router.delete("/turfs/:id", authenticate, requireRole("admin", "turf_owner"), as
 
 router.get("/turfs/:id/slots", async (req: Request, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Turf not found" }); return; }
     const { date } = req.query as { date?: string };
     const turf = await Turf.findById(req.params.id).lean() as any;
     if (!turf) { res.status(404).json({ error: "Turf not found" }); return; }
@@ -108,6 +115,7 @@ router.get("/turfs/:id/slots", async (req: Request, res: Response) => {
 
 router.post("/turfs/:id/slots", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Turf not found" }); return; }
     const slot = await TimeSlot.create({ turfId: req.params.id, startTime: req.body.startTime, endTime: req.body.endTime });
     res.status(201).json({ id: slot._id.toString(), turfId: slot.turfId?.toString(), startTime: slot.startTime, endTime: slot.endTime, date: "", isBooked: false });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to create slot" }); }
@@ -115,6 +123,7 @@ router.post("/turfs/:id/slots", authenticate, requireRole("turf_owner", "admin")
 
 router.post("/turfs/:id/review", authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Turf not found" }); return; }
     const review = await Review.create({ turfId: req.params.id, userId: req.user!.id, rating: req.body.rating, comment: req.body.comment });
     const allReviews = await Review.find({ turfId: req.params.id });
     const avg = allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length;
