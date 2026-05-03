@@ -111,8 +111,8 @@ export default function Home() {
 
       <main className="flex-1 overflow-y-auto overflow-x-hidden pb-24 lg:pb-8">
         {/* Search Hero */}
-        <div className="bg-secondary text-secondary-foreground px-4 sm:px-6 lg:px-8 py-6 pb-8 rounded-b-3xl relative overflow-hidden">
-          <div className="max-w-7xl mx-auto">
+        <div className="bg-secondary text-secondary-foreground px-4 sm:px-6 lg:px-10 py-6 pb-8 rounded-b-3xl relative overflow-hidden">
+          <div className="max-w-screen-2xl mx-auto">
           <div className="absolute top-0 right-0 opacity-10 pointer-events-none">
             <svg width="200" height="200" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
           </div>
@@ -130,7 +130,7 @@ export default function Home() {
             />
           </div>
           {searchQuery && (
-            <div className="relative z-10 mt-3 rounded-2xl bg-background/95 p-3 shadow-sm space-y-3 max-w-3xl">
+            <div className="relative z-10 mt-3 rounded-2xl bg-background/95 p-3 shadow-sm space-y-3 max-w-4xl">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-2">Matching Venues</p>
                 <div className="space-y-2">
@@ -172,8 +172,8 @@ export default function Home() {
         </div>
 
         {/* Quick Actions */}
-        <div className="px-4 sm:px-6 lg:px-8 py-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-7xl mx-auto">
+        <div className="px-4 sm:px-6 lg:px-10 py-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-screen-2xl mx-auto">
             {features.map((feature) => (
               <Link key={feature.name} href={feature.href} className="flex flex-col items-center gap-2 group">
                 <div className={`${feature.color} w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform duration-200`}>
@@ -188,7 +188,7 @@ export default function Home() {
         {/* ── Featured Turfs ── */}
         {hasFeaturedTurfs && (
           <div className="py-4 bg-gradient-to-b from-primary/5 to-transparent">
-            <div className="px-4 sm:px-6 lg:px-8 flex items-center justify-between mb-3 max-w-7xl mx-auto">
+            <div className="px-4 sm:px-6 lg:px-10 flex items-center justify-between mb-3 max-w-screen-2xl mx-auto">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary fill-primary/30" />
                 <h3 className="font-bold text-lg">Featured Venues</h3>
@@ -197,7 +197,7 @@ export default function Home() {
                 See All <ArrowRight className="h-3 w-3 ml-1" />
               </Link>
             </div>
-            <div className="flex overflow-x-auto gap-4 px-4 sm:px-6 lg:px-8 pb-2 snap-x hide-scrollbar max-w-7xl mx-auto">
+            <div className="flex overflow-x-auto gap-4 px-4 sm:px-6 lg:px-10 pb-2 snap-x hide-scrollbar max-w-screen-2xl mx-auto">
               {featuredTurfs.map(turf => (
                 <Link key={turf.id} href={`/turfs/${turf.id}`} className="min-w-[240px] snap-center">
                   <Card className="border border-primary/20 shadow-sm shadow-primary/10 overflow-hidden h-full">
@@ -239,7 +239,7 @@ export default function Home() {
 
         {/* ── Nearby / Top-rated Turfs ── */}
         <div className="py-4">
-          <div className="px-4 sm:px-6 lg:px-8 flex items-center justify-between mb-3 max-w-7xl mx-auto">
+          <div className="px-4 sm:px-6 lg:px-10 flex items-center justify-between mb-3 max-w-screen-2xl mx-auto">
             <div className="flex items-center gap-2">
               <Navigation className="h-4 w-4 text-primary" />
               <h3 className="font-bold text-lg">
@@ -258,7 +258,7 @@ export default function Home() {
 
           {/* Location prompt */}
           {!lat && !locLoading && (
-            <div className="mx-4 sm:mx-6 lg:mx-8 mb-3 flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-xl p-3 max-w-7xl">
+            <div className="mx-4 sm:mx-6 lg:mx-10 mb-3 flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-xl p-3 max-w-screen-2xl">
               {locError ? (
                 <>
                   <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
@@ -288,7 +288,7 @@ export default function Home() {
             </div>
           )}
 
-          <div className="flex overflow-x-auto gap-4 px-4 sm:px-6 lg:px-8 pb-4 snap-x hide-scrollbar max-w-7xl mx-auto">
+          <div className="flex overflow-x-auto gap-4 px-4 sm:px-6 lg:px-10 pb-4 snap-x hide-scrollbar max-w-screen-2xl mx-auto">
             {isLoadingTurfs ? (
               [1, 2, 3].map(i => (
                 <div key={i} className="min-w-[260px] h-64 rounded-2xl bg-muted animate-pulse snap-center" />
@@ -342,7 +342,7 @@ export default function Home() {
         {/* ── Featured Tournaments & Events ── */}
         {hasFeaturedEvents && (
           <div className="py-4 bg-muted/30">
-            <div className="px-4 sm:px-6 lg:px-8 flex items-center justify-between mb-4 max-w-7xl mx-auto">
+            <div className="px-4 sm:px-6 lg:px-10 flex items-center justify-between mb-4 max-w-screen-2xl mx-auto">
               <div className="flex items-center gap-2">
                 <Trophy className="h-4 w-4 text-primary" />
                 <h3 className="font-bold text-lg">Featured Tournaments</h3>
@@ -351,7 +351,7 @@ export default function Home() {
                 See All <ArrowRight className="h-3 w-3 ml-1" />
               </Link>
             </div>
-            <div className="px-4 sm:px-6 lg:px-8 space-y-3 max-w-7xl mx-auto">
+            <div className="px-4 sm:px-6 lg:px-10 space-y-3 max-w-screen-2xl mx-auto">
               {featuredEvents.slice(0, 3).map(event => (
                 <Link key={event.id} href={`/events/${event.id}`} className="block">
                   <Card className="border-none shadow-sm overflow-hidden">
@@ -419,13 +419,13 @@ export default function Home() {
         {/* Fallback: show upcoming events even if none are featured */}
         {!hasFeaturedEvents && (
           <div className="py-4 bg-muted/30">
-            <div className="px-4 sm:px-6 lg:px-8 flex items-center justify-between mb-4 max-w-7xl mx-auto">
+            <div className="px-4 sm:px-6 lg:px-10 flex items-center justify-between mb-4 max-w-screen-2xl mx-auto">
               <h3 className="font-bold text-lg">Upcoming Tournaments</h3>
               <Link href="/events" className="text-sm text-primary font-semibold flex items-center">
                 See All <ArrowRight className="h-3 w-3 ml-1" />
               </Link>
             </div>
-            <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+            <div className="px-4 sm:px-6 lg:px-10 max-w-screen-2xl mx-auto">
               <div className="rounded-2xl bg-gradient-to-r from-secondary to-secondary/80 p-5 text-center">
                 <Trophy className="h-10 w-10 mx-auto text-primary mb-2" />
                 <p className="font-bold text-sm">No featured tournaments yet</p>

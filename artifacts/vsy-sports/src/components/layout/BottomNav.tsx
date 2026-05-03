@@ -28,7 +28,7 @@ export function BottomNav() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border pb-safe">
-      <div className="grid grid-cols-6 items-end h-18 w-full max-w-3xl mx-auto px-2 sm:px-4 pt-1">
+      <div className="grid grid-cols-6 items-end h-18 w-full max-w-screen-2xl mx-auto px-2 sm:px-4 lg:px-10 pt-1">
         {navItems.map((item) => {
           const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
           return (
