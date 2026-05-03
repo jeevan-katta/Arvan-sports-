@@ -60,7 +60,7 @@ export default function Login() {
         toast({
           variant: "destructive",
           title: "Login failed",
-          description: error.message || "Invalid credentials. Please try again.",
+          description: error.message && error.message !== "Load failed" ? error.message : "Invalid credentials. Please try again.",
         });
       }
     });
@@ -79,6 +79,7 @@ export default function Login() {
           <div className="w-16 h-16 bg-primary rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-lg shadow-primary/20">
             <Zap className="h-8 w-8 text-primary-foreground fill-primary-foreground" />
           </div>
+          <img src="/assets/IMG_1440_1777794875044.png" alt="Vsy Sports" className="mx-auto mb-4 h-28 w-auto rounded-2xl object-cover shadow-lg" />
           <h1 className="text-3xl font-display font-bold tracking-tight">WELCOME TO VSY</h1>
           <p className="text-muted-foreground mt-2 text-sm">Log in to book turfs and join events</p>
         </div>
