@@ -243,15 +243,15 @@ router.get("/owner/payout-status", authenticate, requireRole("turf_owner", "admi
     }
     const bookings = turfIds.length ? await Booking.find(bookingFilter).lean() : [];
     const grossRevenue = (bookings as any[]).reduce((s: number, b: any) => s + (b.totalPrice || 0), 0);
-    const collectedCash = (bookings as any[]).filter((b: any) => b.paymentStatus === "cash_collected").reduce((s: number, b: any) => s + Math.max(0, (b.totalPrice || 0) - (b.paidAmount || 0)), 0);
+    const onlineCollected = (bookings as any[]).filter((b: any) => b.paymentStatus === "paid" || b.paymentType === "advance").reduce((s: number, b: any) => s + (b.paidAmount || 0), 0);
+    const cashCollected = (bookings as any[]).filter((b: any) => b.paymentStatus === "cash_collected").reduce((s: number, b: any) => s + Math.max(0, (b.totalPrice || 0) - (b.paidAmount || 0)), 0);
     const commissionRate = owner.commissionRate ?? 20;
     const adminCommission = Math.round(grossRevenue * commissionRate / 100);
     const ownerEarnings = grossRevenue - adminCommission;
     const payoutSent = owner.payoutSent ?? 0;
-    const adjustedOwnerEarnings = Math.max(0, ownerEarnings - collectedCash);
-    const adjustedPendingPayout = Math.max(0, adjustedOwnerEarnings - payoutSent);
+    const pendingPayout = Math.max(0, ownerEarnings - payoutSent);
     res.json({
-      commissionRate, ownerEarnings: adjustedOwnerEarnings, adminCommission, grossRevenue, payoutSent, pendingPayout: adjustedPendingPayout, collectedCash,
+      commissionRate, ownerEarnings, adminCommission, grossRevenue, payoutSent, pendingPayout, onlineCollected, cashCollected,
       commissionHeld: owner.commissionHeld ?? false,
       payoutSchedule: owner.payoutSchedule ?? "manual",
       bankDetails: owner.bankDetails ?? {},
@@ -335,12 +335,12 @@ router.get("/owner/today", authenticate, requireRole("turf_owner", "admin"), asy
     // All-time payout calc
     const commissionRate = owner.commissionRate ?? 20;
     const grossRevenue   = (allPaidBookings as any[]).reduce((s: number, b: any) => s + (b.totalPrice || 0), 0);
+    const onlineCollected = (allPaidBookings as any[]).filter((b: any) => b.paymentStatus === "paid" || b.paymentType === "advance").reduce((s: number, b: any) => s + (b.paidAmount || 0), 0);
+    const cashCollected  = (allPaidBookings as any[]).filter((b: any) => b.paymentStatus === "cash_collected").reduce((s: number, b: any) => s + Math.max(0, (b.totalPrice || 0) - (b.paidAmount || 0)), 0);
     const adminCommission = Math.round(grossRevenue * commissionRate / 100);
     const ownerEarnings  = grossRevenue - adminCommission;
     const payoutSent     = owner.payoutSent ?? 0;
-    const collectedCash  = (todayBookings as any[]).filter((b: any) => b.paymentStatus === "cash_collected").reduce((s: number, b: any) => s + Math.max(0, (b.totalPrice || 0) - (b.paidAmount || 0)), 0);
-    const adjustedOwnerEarnings = Math.max(0, ownerEarnings - collectedCash);
-    const pendingPayout  = Math.max(0, adjustedOwnerEarnings - payoutSent);
+    const pendingPayout  = Math.max(0, ownerEarnings - payoutSent);
 
     // Today's owner cut from today's paid bookings
     const todayOwnerCut = Math.round(todayRevenue * (1 - commissionRate / 100));
@@ -366,6 +366,8 @@ router.get("/owner/today", authenticate, requireRole("turf_owner", "admin"), asy
       pendingPayout,
       payoutSchedule: owner.payoutSchedule ?? "manual",
       commissionHeld: owner.commissionHeld ?? false,
+      onlineCollected,
+      cashCollected,
       lastPayout: lastPayout ? { amount: lastPayout.amount, date: lastPayout.date instanceof Date ? lastPayout.date.toISOString() : lastPayout.date, method: lastPayout.method } : null,
       // Today's booking list (slim)
       todayBookingList: (todayBookings as any[]).map((b: any) => {
