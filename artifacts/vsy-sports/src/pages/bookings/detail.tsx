@@ -54,7 +54,7 @@ export default function BookingDetail() {
   const handlePayment = async () => {
     if (!booking) return;
     try {
-      const paymentOrder = await createPaymentMutation.mutateAsync({ id: bookingId as any, data: { paymentType } as any } as any);
+      const paymentOrder = await createPaymentMutation.mutateAsync({ id: bookingId, paymentType } as any);
       const orderId: string = (paymentOrder as any).orderId || "";
       const paidAmount = Number((paymentOrder as any).paidAmount || 0);
       const isAdvance = paymentType === "advance";

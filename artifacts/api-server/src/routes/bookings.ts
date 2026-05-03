@@ -106,8 +106,9 @@ router.post("/bookings", authenticate, async (req: AuthRequest, res: Response) =
 
 router.get("/bookings/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Booking not found" }); return; }
-    const booking = await Booking.findById(req.params.id).lean() as any;
+    const bookingId = String(req.params.id || "");
+    if (!bookingId || !isValidId(bookingId)) { res.status(404).json({ error: "Booking not found" }); return; }
+    const booking = await Booking.findById(bookingId).lean() as any;
     if (!booking) { res.status(404).json({ error: "Booking not found" }); return; }
     const turf = await Turf.findById(booking.turfId).lean() as any;
     const user = await User.findById(booking.userId).lean() as any;
@@ -117,8 +118,9 @@ router.get("/bookings/:id", authenticate, async (req: AuthRequest, res: Response
 
 router.delete("/bookings/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Booking not found" }); return; }
-    const booking = await Booking.findByIdAndUpdate(req.params.id, { status: "cancelled" }, { new: true }).lean();
+    const bookingId = String(req.params.id || "");
+    if (!bookingId || !isValidId(bookingId)) { res.status(404).json({ error: "Booking not found" }); return; }
+    const booking = await Booking.findByIdAndUpdate(bookingId, { status: "cancelled" }, { new: true }).lean();
     if (!booking) { res.status(404).json({ error: "Booking not found" }); return; }
     res.json(bookingRes(booking));
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to cancel booking" }); }
@@ -126,14 +128,15 @@ router.delete("/bookings/:id", authenticate, async (req: AuthRequest, res: Respo
 
 router.post("/bookings/:id/payment", authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Booking not found" }); return; }
+    const bookingId = String(req.params.id || "");
+    if (!bookingId || !isValidId(bookingId)) { res.status(404).json({ error: "Booking not found" }); return; }
     const paymentType: string = req.body?.paymentType || "full";
-    const booking = await Booking.findById(req.params.id).lean() as any;
+    const booking = await Booking.findById(bookingId).lean() as any;
     if (!booking) { res.status(404).json({ error: "Booking not found" }); return; }
 
     // Auto-cancel if expired
     if (booking.status === "pending" && booking.expiresAt && new Date(booking.expiresAt) < new Date()) {
-      await Booking.findByIdAndUpdate(req.params.id, { status: "cancelled" });
+      await Booking.findByIdAndUpdate(bookingId, { status: "cancelled" });
       res.status(400).json({ error: "Booking reservation expired. Please rebook." }); return;
     }
 
@@ -153,7 +156,7 @@ router.post("/bookings/:id/payment", authenticate, async (req: AuthRequest, res:
         const rzpOrder = await rzp.orders.create({
           amount: Math.round(paidAmount * 100),
           currency: "INR",
-          receipt: `booking_${req.params.id}`,
+          receipt: `booking_${bookingId}`,
         });
         orderId = rzpOrder.id;
       } catch (rzpErr: any) {
@@ -164,7 +167,7 @@ router.post("/bookings/:id/payment", authenticate, async (req: AuthRequest, res:
       orderId = `order_sim_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     }
 
-    await Booking.findByIdAndUpdate(req.params.id, { razorpayOrderId: orderId, paymentType, paidAmount });
+    await Booking.findByIdAndUpdate(bookingId, { razorpayOrderId: orderId, paymentType, paidAmount });
     res.json({
       orderId,
       amount: Math.round(paidAmount * 100),
@@ -182,7 +185,8 @@ router.post("/bookings/:id/payment", authenticate, async (req: AuthRequest, res:
 
 router.post("/bookings/:id/verify-payment", authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Booking not found" }); return; }
+    const bookingId = String(req.params.id || "");
+    if (!bookingId || !isValidId(bookingId)) { res.status(404).json({ error: "Booking not found" }); return; }
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body || {};
     const hasRealKeys = RAZORPAY_KEY_ID.startsWith("rzp_") && RAZORPAY_KEY_SECRET.length >= 20;
     const isSimulated = !razorpayPaymentId || razorpayOrderId?.startsWith("order_sim_");
@@ -193,10 +197,10 @@ router.post("/bookings/:id/verify-payment", authenticate, async (req: AuthReques
       if (expected !== razorpaySignature) { res.status(400).json({ error: "Invalid payment signature" }); return; }
     }
 
-    const booking = await Booking.findById(req.params.id).lean() as any;
+    const booking = await Booking.findById(bookingId).lean() as any;
     if (!booking) { res.status(404).json({ error: "Booking not found" }); return; }
     const newPaymentStatus = booking.paymentType === "advance" ? "partially_paid" : "paid";
-    const updated = await Booking.findByIdAndUpdate(req.params.id, {
+    const updated = await Booking.findByIdAndUpdate(bookingId, {
       paymentStatus: newPaymentStatus,
       status: "confirmed",
       razorpayPaymentId: razorpayPaymentId || `sim_pay_${Date.now()}`,
@@ -207,7 +211,7 @@ router.post("/bookings/:id/verify-payment", authenticate, async (req: AuthReques
     // Trigger immediate owner payout in background (non-blocking)
     if (newPaymentStatus === "paid" && booking.turfId) {
       import("../lib/auto-payout").then(({ triggerOwnerPayout }) => {
-        triggerOwnerPayout(req.params.id, booking.totalPrice || 0, booking.turfId.toString()).catch(() => {});
+        triggerOwnerPayout(bookingId, booking.totalPrice || 0, booking.turfId.toString()).catch(() => {});
       }).catch(() => {});
     }
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to verify payment" }); }
