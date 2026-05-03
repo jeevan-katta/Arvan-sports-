@@ -36,9 +36,8 @@ export default function Login() {
 
   const onSubmit = (data: LoginFormValues) => {
     setIsLoading(true);
-    const payload = data.identifier.includes("@")
-      ? { email: data.identifier, password: data.password }
-      : { email: data.identifier, password: data.password };
+    const identifier = data.identifier.trim();
+    const payload = { email: identifier, password: data.password };
 
     loginMutation.mutate({ data: payload }, {
       onSuccess: (response) => {

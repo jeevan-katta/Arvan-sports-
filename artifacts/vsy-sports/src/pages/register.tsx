@@ -43,7 +43,8 @@ export default function Register() {
 
   const onSubmit = (data: RegisterFormValues) => {
     setIsLoading(true);
-    registerMutation.mutate({ data: { ...data, role: "user" } as any }, {
+    const phone = data.phone.trim().replace(/\s+/g, "");
+    registerMutation.mutate({ data: { ...data, phone, role: "user" } as any }, {
       onSuccess: (response) => {
         login(response.token, response.user);
         toast({
