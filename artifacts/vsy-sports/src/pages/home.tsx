@@ -87,9 +87,6 @@ export default function Home() {
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary fill-primary/30" />
                 <h3 className="font-bold text-lg">Featured Venues</h3>
-                <span className="text-[10px] font-black bg-primary text-primary-foreground px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  Admin Pick
-                </span>
               </div>
               <Link href="/turfs" className="text-sm text-primary font-semibold flex items-center">
                 See All <ArrowRight className="h-3 w-3 ml-1" />
