@@ -377,21 +377,17 @@ export default function OwnerPayout() {
     );
   }
 
-  const settled    = payout?.ownerEarnings > 0
-    ? Math.min(100, Math.round((payout.payoutSent / payout.ownerEarnings) * 100))
-    : 0;
-  const ownerPct   = 100 - (payout?.commissionRate ?? 20);
-  const bd         = payout?.bankDetails ?? {};
-  const hasBank    = !!(bd.accountNumber || bd.ifscCode);
-  const hasUPI     = !!bd.upiId;
-  const hasAny     = hasBank || hasUPI;
-  const pendingCashBookings = payout?.pendingCashBookings ?? [];
-  const pendingCashTotal = pendingCashBookings.reduce((sum: number, booking: any) => {
-    const pending = booking.pendingCashAmount ?? Math.max(0, (booking.totalPrice || 0) - (booking.paidAmount || 0));
-    return sum + pending;
-  }, 0);
-  const ownerGrossBeforeCommission = (payout?.grossRevenue || 0) + (payout?.collectedCash || 0);
-  const ownerNetAfterCash = Math.max(0, (payout?.ownerEarnings || 0) - (payout?.collectedCash || 0));
+  const payoutSent     = payout?.payoutSent ?? 0;
+  const cashCollected  = payout?.cashCollected ?? 0;
+  const ownerEarnings  = payout?.ownerEarnings ?? 0;
+  const pendingPayout  = payout?.pendingPayout ?? 0;
+  const totalReceived  = payoutSent + cashCollected;
+  const settled        = ownerEarnings > 0 ? Math.min(100, Math.round((totalReceived / ownerEarnings) * 100)) : 0;
+  const ownerPct       = 100 - (payout?.commissionRate ?? 20);
+  const bd             = payout?.bankDetails ?? {};
+  const hasBank        = !!(bd.accountNumber || bd.ifscCode);
+  const hasUPI         = !!bd.upiId;
+  const hasAny         = hasBank || hasUPI;
 
   const onBankSaved = (newBd: any) => {
     setEditingBank(false);
@@ -497,17 +493,17 @@ export default function OwnerPayout() {
       {/* ── Status Banner ── */}
       <div className={cn("rounded-2xl border p-4",
         payout?.commissionHeld ? "bg-red-500/10 border-red-500/30"
-          : payout?.pendingPayout > 0 ? "bg-amber-500/10 border-amber-500/30"
+          : pendingPayout > 0 ? "bg-amber-500/10 border-amber-500/30"
           : "bg-emerald-500/10 border-emerald-500/30")}>
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             {payout?.commissionHeld
               ? <AlertCircle className="h-4 w-4 text-red-500" />
-              : payout?.pendingPayout > 0
+              : pendingPayout > 0
                 ? <Clock className="h-4 w-4 text-amber-500" />
                 : <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
             <span className="font-bold text-sm">
-              {payout?.commissionHeld ? "Payout On Hold" : payout?.pendingPayout > 0 ? "Payment Pending" : "All Settled"}
+              {payout?.commissionHeld ? "Payout On Hold" : pendingPayout > 0 ? "Transfer Pending" : "Fully Settled"}
             </span>
             {payout?.commissionHeld && (
               <span className="text-[9px] font-black bg-red-500/20 text-red-500 border border-red-500/30 px-2 py-0.5 rounded-full uppercase">HELD</span>
@@ -525,79 +521,103 @@ export default function OwnerPayout() {
         )}
         <div className="mt-3">
           <div className="flex justify-between text-xs mb-1.5">
-            <span className="text-muted-foreground">{settled}% settled</span>
-              <span className="font-bold">{fmtINR(payout?.payoutSent)} / {fmtINR(ownerNetAfterCash)}</span>
+            <span className="text-muted-foreground">{settled}% of your share received</span>
+            <span className="font-bold">{fmtINR(totalReceived)} / {fmtINR(ownerEarnings)}</span>
           </div>
           <div className="h-3 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
-            <div className={cn("h-full rounded-full transition-all duration-500", settled === 100 ? "bg-emerald-500" : "bg-primary")}
+            <div className={cn("h-full rounded-full transition-all duration-500", settled >= 100 ? "bg-emerald-500" : "bg-primary")}
               style={{ width: `${settled}%` }} />
           </div>
           <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-            <span>Paid: {fmtINR(payout?.payoutSent)}</span>
-            <span>Pending: {fmtINR(payout?.pendingPayout)}</span>
+            <span>Received: {fmtINR(totalReceived)} (bank + cash)</span>
+            <span className={cn(pendingPayout > 0 ? "text-amber-500 font-bold" : "")}>
+              {pendingPayout > 0 ? `Pending: ${fmtINR(pendingPayout)}` : "Fully paid"}
+            </span>
           </div>
         </div>
       </div>
 
       {/* ── Balance Cards ── */}
-      <div className="grid grid-cols-2 gap-3">
-        <Card className="p-4 border-none shadow-sm bg-primary text-primary-foreground">
-          <IndianRupee className="h-4 w-4 mb-2 opacity-70" />
-          <p className="text-2xl font-black">{fmtINR(ownerNetAfterCash)}</p>
-          <p className="text-xs opacity-75 mt-1">Total Earned</p>
-          <p className="text-[10px] opacity-50 mt-0.5">Your {ownerPct}% share</p>
-        </Card>
-        <Card className={cn("p-4 border-none shadow-sm", payout?.pendingPayout > 0 ? "bg-amber-500/10" : "bg-emerald-500/10")}>
-          <Wallet className={cn("h-4 w-4 mb-2", payout?.pendingPayout > 0 ? "text-amber-500" : "text-emerald-500")} />
-          <p className={cn("text-2xl font-black", payout?.pendingPayout > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400")}>
-            {fmtINR(payout?.pendingPayout)}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">Pending Payout</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Awaiting transfer</p>
-        </Card>
+      <div className="space-y-3">
+        {/* Top row: two key cards */}
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="p-4 border-none shadow-sm bg-primary text-primary-foreground">
+            <IndianRupee className="h-4 w-4 mb-2 opacity-70" />
+            <p className="text-2xl font-black">{fmtINR(ownerEarnings)}</p>
+            <p className="text-xs opacity-75 mt-1">Your Total Share</p>
+            <p className="text-[10px] opacity-50 mt-0.5">Your {ownerPct}% of {fmtINR(payout?.grossRevenue)}</p>
+          </Card>
+          <Card className={cn("p-4 border-none shadow-sm", pendingPayout > 0 ? "bg-amber-500/10" : "bg-emerald-500/10")}>
+            <Clock className={cn("h-4 w-4 mb-2", pendingPayout > 0 ? "text-amber-500" : "text-emerald-500")} />
+            <p className={cn("text-2xl font-black", pendingPayout > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400")}>
+              {fmtINR(pendingPayout)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">Pending from Admin</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Bank/UPI transfer due</p>
+          </Card>
+        </div>
+
+        {/* Received breakdown */}
         <Card className="p-4 border-none shadow-sm">
-          <CheckCircle2 className="h-4 w-4 mb-2 text-emerald-500" />
-          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{fmtINR(payout?.payoutSent)}</p>
-          <p className="text-xs text-muted-foreground mt-1">Total Received</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">{payout?.payoutHistory?.length ?? 0} transactions</p>
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Total Payout Till Now</p>
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                  <Wallet className="h-3.5 w-3.5 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold">Bank / UPI Transfers</p>
+                  <p className="text-[10px] text-muted-foreground">{payout?.payoutHistory?.length ?? 0} payments from admin</p>
+                </div>
+              </div>
+              <p className="font-black text-emerald-600 dark:text-emerald-400">{fmtINR(payoutSent)}</p>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                  <Banknote className="h-3.5 w-3.5 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold">Cash at Venue</p>
+                  <p className="text-[10px] text-muted-foreground">Collected directly from customers</p>
+                </div>
+              </div>
+              <p className="font-black text-blue-600 dark:text-blue-400">{fmtINR(cashCollected)}</p>
+            </div>
+            <div className="border-t border-border pt-2.5 flex items-center justify-between">
+              <p className="text-sm font-black">Total In Your Hands</p>
+              <p className="text-base font-black text-primary">{fmtINR(totalReceived)}</p>
+            </div>
+          </div>
         </Card>
+
+        {/* Gross Revenue & commission */}
         <Card className="p-4 border-none shadow-sm">
-          <IndianRupee className="h-4 w-4 mb-2 text-muted-foreground" />
-          <p className="text-2xl font-black">{fmtINR(ownerGrossBeforeCommission)}</p>
-          <p className="text-xs text-muted-foreground mt-1">Gross Revenue</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">
-            Admin: {fmtINR(payout?.adminCommission)} ({payout?.commissionRate}%)
-          </p>
-        </Card>
-        <Card className="p-4 border-none shadow-sm bg-amber-500/10">
-          <Banknote className="h-4 w-4 mb-2 text-amber-500" />
-          <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{fmtINR(pendingCashTotal)}</p>
-          <p className="text-xs text-muted-foreground mt-1">Pending Cash Bookings</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">{pendingCashBookings.length} bookings awaiting cash</p>
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Revenue Breakdown</p>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Gross Revenue</span>
+              <span className="font-bold">{fmtINR(payout?.grossRevenue)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Admin Commission ({payout?.commissionRate ?? 20}%)</span>
+              <span className="font-bold text-orange-500">− {fmtINR(payout?.adminCommission)}</span>
+            </div>
+            <div className="border-t border-border pt-2 flex justify-between text-sm">
+              <span className="font-black">Your Share ({ownerPct}%)</span>
+              <span className="font-black text-primary">{fmtINR(ownerEarnings)}</span>
+            </div>
+          </div>
+          <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
+            <div className="h-full rounded-full bg-primary" style={{ width: `${ownerPct}%` }} />
+          </div>
+          <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+            <span>Admin {payout?.commissionRate ?? 20}%</span>
+            <span>You {ownerPct}%</span>
+          </div>
         </Card>
       </div>
-
-      {/* ── Revenue Split ── */}
-      <Card className="p-4 border-none shadow-sm">
-        <h3 className="font-bold text-sm mb-3">Revenue Split</h3>
-        <div className="space-y-3">
-          {[
-            { label: "Gross Revenue",                              val: ownerGrossBeforeCommission, pct: 100,                    color: "bg-muted-foreground/20", textColor: "text-foreground" },
-            { label: `Admin Commission (${payout?.commissionRate ?? 20}%)`, val: payout?.adminCommission, pct: payout?.commissionRate ?? 20, color: "bg-orange-400",          textColor: "text-orange-500" },
-            { label: `Your Share (${ownerPct}%)`,                  val: ownerNetAfterCash,       pct: ownerPct,                 color: "bg-primary",             textColor: "text-primary" },
-          ].map((row, i) => (
-            <div key={i}>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-muted-foreground">{row.label}</span>
-                <span className={cn("font-bold", row.textColor)}>{fmtINR(row.val)}</span>
-              </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div className={cn("h-full rounded-full", row.color)} style={{ width: `${row.pct}%` }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
 
       {/* ── Bank / UPI Details ── */}
       <Card className="p-4 border-none shadow-sm">
@@ -722,8 +742,8 @@ export default function OwnerPayout() {
                 ))}
                 <Card className="p-3 border-none shadow-sm bg-muted/50">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Total received</span>
-                    <span className="font-black text-primary">{fmtINR(payout.payoutSent)}</span>
+                    <span className="text-muted-foreground">Total bank/UPI transfers</span>
+                    <span className="font-black text-primary">{fmtINR(payoutSent)}</span>
                   </div>
                 </Card>
               </>

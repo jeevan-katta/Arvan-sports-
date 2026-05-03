@@ -400,7 +400,8 @@ export default function AdminPayout() {
                 {/* Rows */}
                 <div className="divide-y divide-white/[0.04]">
                   {processed.map((o: any) => {
-                    const settled = o.ownerEarnings > 0 ? Math.min(100, Math.round(o.payoutSent / o.ownerEarnings * 100)) : 100;
+                    const totalRcvd = (o.payoutSent || 0) + (o.cashCollected || 0);
+                    const settled = o.ownerEarnings > 0 ? Math.min(100, Math.round(totalRcvd / o.ownerEarnings * 100)) : 100;
                     const hasPending = o.pendingPayout > 0;
                     const isSelected = selected.has(o.id);
                     const isActive = panel?.id === o.id;
@@ -478,7 +479,8 @@ export default function AdminPayout() {
               {/* Mobile cards */}
               <div className="lg:hidden space-y-2">
                 {processed.map((o: any) => {
-                  const settled = o.ownerEarnings > 0 ? Math.min(100, Math.round(o.payoutSent / o.ownerEarnings * 100)) : 100;
+                  const totalRcvdM = (o.payoutSent || 0) + (o.cashCollected || 0);
+                  const settled = o.ownerEarnings > 0 ? Math.min(100, Math.round(totalRcvdM / o.ownerEarnings * 100)) : 100;
                   const hasPending = o.pendingPayout > 0;
                   return (
                     <div key={o.id}
@@ -566,27 +568,34 @@ export default function AdminPayout() {
                 <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 space-y-3">
                   <p className="text-[10px] font-black text-white/30 uppercase tracking-wider">Earnings Breakdown</p>
                   {[
-                    { l: "Gross Revenue",    v: fmtINR(panel.grossRevenue),   c: "text-white/70" },
-                    { l: `Admin Commission (${panel.commissionRate ?? 20}%)`, v: fmtINR(panel.adminCommission),  c: "text-violet-400" },
-                    { l: "Owner Share",      v: fmtINR(panel.ownerEarnings),  c: "text-emerald-400 font-black" },
-                    { l: "Already Paid",     v: fmtINR(panel.payoutSent),     c: "text-blue-400" },
-                    { l: "Pending",          v: fmtINR(panel.pendingPayout),  c: "text-amber-400 font-black" },
+                    { l: "Gross Revenue",    v: fmtINR(panel.grossRevenue),   c: "text-white/70",              sep: false },
+                    { l: `Admin Commission (${panel.commissionRate ?? 20}%)`, v: fmtINR(panel.adminCommission), c: "text-violet-400",            sep: false },
+                    { l: "Owner Share",      v: fmtINR(panel.ownerEarnings),  c: "text-emerald-400 font-black", sep: true  },
+                    { l: "Cash at Venue",    v: fmtINR(panel.cashCollected ?? 0), c: "text-blue-400",           sep: false },
+                    { l: "Bank/UPI Paid",    v: fmtINR(panel.payoutSent),     c: "text-blue-400",              sep: false },
+                    { l: "Pending Transfer", v: fmtINR(panel.pendingPayout),  c: "text-amber-400 font-black",  sep: false },
                   ].map((r, i) => (
-                    <div key={i} className={cn("flex justify-between text-sm", i === 2 && "pt-2 border-t border-white/[0.06]")}>
+                    <div key={i} className={cn("flex justify-between text-sm", r.sep && "pt-2 border-t border-white/[0.06]")}>
                       <span className="text-white/40">{r.l}</span>
                       <span className={r.c}>{r.v}</span>
                     </div>
                   ))}
-                  <div className="pt-2">
-                    <div className="flex justify-between text-[10px] text-white/30 mb-1">
-                      <span>Settlement</span>
-                      <span>{panel.ownerEarnings > 0 ? Math.round(panel.payoutSent / panel.ownerEarnings * 100) : 100}%</span>
-                    </div>
-                    <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full"
-                        style={{ width: `${panel.ownerEarnings > 0 ? Math.min(100, Math.round(panel.payoutSent / panel.ownerEarnings * 100)) : 100}%` }} />
-                    </div>
-                  </div>
+                  {(() => {
+                    const totalRcvd = (panel.payoutSent || 0) + (panel.cashCollected || 0);
+                    const pct = panel.ownerEarnings > 0 ? Math.min(100, Math.round(totalRcvd / panel.ownerEarnings * 100)) : 100;
+                    return (
+                      <div className="pt-2">
+                        <div className="flex justify-between text-[10px] text-white/30 mb-1">
+                          <span>Settlement (bank + cash)</span>
+                          <span>{pct}%</span>
+                        </div>
+                        <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full"
+                            style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Quick stats */}

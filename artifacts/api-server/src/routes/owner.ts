@@ -248,8 +248,8 @@ router.get("/owner/payout-status", authenticate, requireRole("turf_owner", "admi
     const commissionRate = owner.commissionRate ?? 20;
     const adminCommission = Math.round(grossRevenue * commissionRate / 100);
     const ownerEarnings = grossRevenue - adminCommission;
-    const payoutSent = owner.payoutSent ?? 0;
-    const pendingPayout = Math.max(0, ownerEarnings - payoutSent);
+    const payoutSent = owner.totalPayoutSent ?? 0;
+    const pendingPayout = Math.max(0, ownerEarnings - cashCollected - payoutSent);
     res.json({
       commissionRate, ownerEarnings, adminCommission, grossRevenue, payoutSent, pendingPayout, onlineCollected, cashCollected,
       commissionHeld: owner.commissionHeld ?? false,
@@ -339,8 +339,8 @@ router.get("/owner/today", authenticate, requireRole("turf_owner", "admin"), asy
     const cashCollected  = (allPaidBookings as any[]).filter((b: any) => b.paymentStatus === "cash_collected").reduce((s: number, b: any) => s + Math.max(0, (b.totalPrice || 0) - (b.paidAmount || 0)), 0);
     const adminCommission = Math.round(grossRevenue * commissionRate / 100);
     const ownerEarnings  = grossRevenue - adminCommission;
-    const payoutSent     = owner.payoutSent ?? 0;
-    const pendingPayout  = Math.max(0, ownerEarnings - payoutSent);
+    const payoutSent     = owner.totalPayoutSent ?? 0;
+    const pendingPayout  = Math.max(0, ownerEarnings - cashCollected - payoutSent);
 
     // Today's owner cut from today's paid bookings
     const todayOwnerCut = Math.round(todayRevenue * (1 - commissionRate / 100));

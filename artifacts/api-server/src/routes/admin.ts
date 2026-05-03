@@ -297,7 +297,7 @@ router.get("/admin/owners", authenticate, requireRole("admin"), async (req: Auth
     const ownerIds = (owners as any[]).map((o: any) => o._id);
     const [allTurfs, allBookings] = await Promise.all([
       Turf.find({ ownerId: { $in: ownerIds } }).lean(),
-      Booking.find({ paymentStatus: "paid" }).lean(),
+      Booking.find({ paymentStatus: { $in: ["paid", "cash_collected"] } }).lean(),
     ]);
     const turfsByOwner: Record<string, any[]> = {};
     const turfIdToOwner: Record<string, string> = {};
@@ -322,14 +322,16 @@ router.get("/admin/owners", authenticate, requireRole("admin"), async (req: Auth
       const rate = owner.commissionRate ?? 20;
       const adminCommission = Math.round(grossRevenue * (rate / 100));
       const ownerEarnings = Math.round(grossRevenue * ((100 - rate) / 100));
+      const cashCollected = bookings.filter((b: any) => b.paymentStatus === "cash_collected").reduce((s: number, b: any) => s + Math.max(0, (b.totalPrice || 0) - (b.paidAmount || 0)), 0);
+      const onlineCollected = bookings.filter((b: any) => b.paymentStatus === "paid").reduce((s: number, b: any) => s + (b.paidAmount || 0), 0);
       const payoutSent = owner.totalPayoutSent || 0;
-      const pendingPayout = Math.max(0, ownerEarnings - payoutSent);
+      const pendingPayout = Math.max(0, ownerEarnings - cashCollected - payoutSent);
       return {
         ...userRes(owner),
         turfCount: turfs.length,
         activeTurfs: turfs.filter((t: any) => t.status === "approved").length,
         totalBookings: bookings.length,
-        grossRevenue, adminCommission, ownerEarnings, payoutSent, pendingPayout,
+        grossRevenue, adminCommission, ownerEarnings, payoutSent, pendingPayout, cashCollected, onlineCollected,
         turfs: turfs.map((t: any) => ({
           id: t._id.toString(), name: t.name, area: t.area, status: t.status,
           pricePerHour: t.pricePerHour, rating: t.rating, reviewCount: t.reviewCount,
@@ -475,7 +477,7 @@ router.post("/admin/payouts/bulk", authenticate, requireRole("admin"), async (re
     const ownerIdSet = new Set(owners.map((o: any) => o._id.toString()));
     const [allTurfs, allBookings] = await Promise.all([
       Turf.find({ ownerId: { $in: Array.from(ownerIdSet) } }).lean(),
-      Booking.find({ paymentStatus: "paid" }).lean(),
+      Booking.find({ paymentStatus: { $in: ["paid", "cash_collected"] } }).lean(),
     ]);
     const turfIdToOwner: Record<string, string> = {};
     const turfsByOwner: Record<string, any[]> = {};
@@ -501,8 +503,9 @@ router.post("/admin/payouts/bulk", authenticate, requireRole("admin"), async (re
       const rate = owner.commissionRate ?? 20;
       const grossRevenue = bookings.reduce((s: number, b: any) => s + (b.totalPrice || 0), 0);
       const ownerEarnings = Math.round(grossRevenue * ((100 - rate) / 100));
+      const cashCollected = bookings.filter((b: any) => b.paymentStatus === "cash_collected").reduce((s: number, b: any) => s + Math.max(0, (b.totalPrice || 0) - (b.paidAmount || 0)), 0);
       const payoutSent = owner.totalPayoutSent || 0;
-      const pending = Math.max(0, ownerEarnings - payoutSent);
+      const pending = Math.max(0, ownerEarnings - cashCollected - payoutSent);
       if (pending < 1) { results.push({ id: oid, name: owner.name, skipped: true, reason: "No pending amount" }); continue; }
 
       let razorpayPayoutId: string | undefined;
@@ -528,7 +531,7 @@ router.get("/admin/payouts/export", authenticate, requireRole("admin"), async (r
     const ownerIds = owners.map((o: any) => o._id);
     const [allTurfs, allBookings] = await Promise.all([
       Turf.find({ ownerId: { $in: ownerIds } }).lean(),
-      Booking.find({ paymentStatus: "paid" }).lean(),
+      Booking.find({ paymentStatus: { $in: ["paid", "cash_collected"] } }).lean(),
     ]);
     const turfIdToOwner: Record<string, string> = {};
     for (const t of allTurfs as any[]) turfIdToOwner[t._id.toString()] = t.ownerId?.toString();
@@ -537,7 +540,7 @@ router.get("/admin/payouts/export", authenticate, requireRole("admin"), async (r
       const oid = turfIdToOwner[b.turfId?.toString()];
       if (oid) { if (!bookingsByOwner[oid]) bookingsByOwner[oid] = []; bookingsByOwner[oid].push(b); }
     }
-    const rows = [["Name", "Email", "Business", "Commission %", "Gross Revenue", "Admin Commission", "Owner Earnings", "Paid Out", "Pending", "Schedule", "Bank/UPI"].join(",")];
+    const rows = [["Name", "Email", "Business", "Commission %", "Gross Revenue", "Admin Commission", "Owner Earnings", "Cash at Venue", "Bank Paid Out", "Pending Transfer", "Schedule", "Bank/UPI"].join(",")];
     for (const o of owners) {
       const oid = o._id.toString();
       const bookings = bookingsByOwner[oid] || [];
@@ -545,10 +548,11 @@ router.get("/admin/payouts/export", authenticate, requireRole("admin"), async (r
       const gross = bookings.reduce((s: number, b: any) => s + (b.totalPrice || 0), 0);
       const adminCut = Math.round(gross * rate / 100);
       const ownerEarn = Math.round(gross * (100 - rate) / 100);
+      const cashCollectedExport = bookings.filter((b: any) => b.paymentStatus === "cash_collected").reduce((s: number, b: any) => s + Math.max(0, (b.totalPrice || 0) - (b.paidAmount || 0)), 0);
       const paid = o.totalPayoutSent || 0;
-      const pending = Math.max(0, ownerEarn - paid);
+      const pending = Math.max(0, ownerEarn - cashCollectedExport - paid);
       const bankInfo = o.bankDetails?.upiId || (o.bankDetails?.accountNumber ? `●●●●${o.bankDetails.accountNumber.slice(-4)}` : "—");
-      rows.push([o.name, o.email, o.businessName || "", rate, gross, adminCut, ownerEarn, paid, pending, o.payoutSchedule || "manual", bankInfo].join(","));
+      rows.push([o.name, o.email, o.businessName || "", rate, gross, adminCut, ownerEarn, cashCollectedExport, paid, pending, o.payoutSchedule || "manual", bankInfo].join(","));
     }
     res.setHeader("Content-Type", "text/csv");
     res.setHeader("Content-Disposition", `attachment; filename="payouts_${Date.now()}.csv"`);

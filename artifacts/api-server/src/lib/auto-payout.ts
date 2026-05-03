@@ -93,12 +93,13 @@ export async function runDailyPayouts(): Promise<{ processed: number; failed: nu
       if (!turfs.length) { skipped++; continue; }
 
       const turfIds = turfs.map((t: any) => t._id);
-      const bookings = await Booking.find({ turfId: { $in: turfIds }, paymentStatus: "paid" }).lean() as any[];
+      const bookings = await Booking.find({ turfId: { $in: turfIds }, paymentStatus: { $in: ["paid", "cash_collected"] } }).lean() as any[];
       const commissionRate = owner.commissionRate ?? 20;
       const grossRevenue = bookings.reduce((s: number, b: any) => s + (b.totalPrice || 0), 0);
       const ownerEarnings = Math.round(grossRevenue * ((100 - commissionRate) / 100) * 100) / 100;
+      const cashCollected = (bookings as any[]).filter((b: any) => b.paymentStatus === "cash_collected").reduce((s: number, b: any) => s + Math.max(0, (b.totalPrice || 0) - (b.paidAmount || 0)), 0);
       const payoutSent = owner.totalPayoutSent || 0;
-      const pending = Math.max(0, ownerEarnings - payoutSent);
+      const pending = Math.max(0, ownerEarnings - cashCollected - payoutSent);
 
       if (pending < 1) { skipped++; continue; }
 
