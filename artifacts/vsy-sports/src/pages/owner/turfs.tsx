@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Building2, MapPin, IndianRupee, Edit3, Star, ExternalLink,
   Plus, X, Trash2, CheckCircle2, Clock, AlertCircle,
-  ChevronDown, ChevronUp, Image, Link, Sun, Moon,
+  ChevronDown, ChevronUp, Image, Link, Sun, Moon, Upload, Loader2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,19 +56,15 @@ const PRICING_SLOTS = [
   { key: "weekendNight", label: "Weekend Night",  sub: "Sat – Sun · 6 PM – 6 AM", icon: Moon, day: false },
 ] as const;
 
-// Convert Google Drive share links → thumbnail CDN URLs (more reliable, no auth redirect)
-function normalizeImageUrl(raw: string): string {
-  const trimmed = raw.trim();
-  // https://drive.google.com/file/d/ID/view...
-  const driveMatch = trimmed.match(/drive\.google\.com\/file\/d\/([^/?\s]+)/);
-  if (driveMatch) return `https://drive.google.com/thumbnail?id=${driveMatch[1]}&sz=w1200`;
-  // https://drive.google.com/open?id=ID
-  const openMatch = trimmed.match(/drive\.google\.com\/open\?id=([^&\s]+)/);
-  if (openMatch) return `https://drive.google.com/thumbnail?id=${openMatch[1]}&sz=w1200`;
-  // https://drive.google.com/uc?id=ID or uc?export=view&id=ID  — convert to thumbnail
-  const ucMatch = trimmed.match(/drive\.google\.com\/uc.*[?&]id=([^&\s]+)/);
-  if (ucMatch) return `https://drive.google.com/thumbnail?id=${ucMatch[1]}&sz=w1200`;
-  return trimmed;
+// Upload a file to telegra.ph (free CDN, no auth needed) → returns public URL
+async function uploadToTelegraph(file: File): Promise<string> {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  const res = await fetch("https://telegra.ph/upload", { method: "POST", body: form });
+  if (!res.ok) throw new Error("Upload failed");
+  const data = await res.json();
+  if (Array.isArray(data) && data[0]?.src) return `https://telegra.ph${data[0].src}`;
+  throw new Error("Invalid response from image host");
 }
 
 function apiFetch(path: string, token: string, method = "GET", body?: object) {
@@ -99,40 +95,77 @@ function ImageSection({
   onChange: (imgs: string[]) => void;
 }) {
   const [urlInput, setUrlInput] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
-  const addImage = () => {
-    const normalized = normalizeImageUrl(urlInput);
-    if (!normalized || images.includes(normalized)) { setUrlInput(""); return; }
-    if (images.length >= 6) return;
-    onChange([...images, normalized]);
+  const addUrl = () => {
+    const trimmed = urlInput.trim();
+    if (!trimmed || images.includes(trimmed) || images.length >= 6) { setUrlInput(""); return; }
+    onChange([...images, trimmed]);
     setUrlInput("");
   };
 
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const remaining = 6 - images.length;
+    const toUpload = Array.from(files).slice(0, remaining);
+    setUploading(true);
+    setUploadError("");
+    const uploaded: string[] = [];
+    for (const file of toUpload) {
+      try {
+        const url = await uploadToTelegraph(file);
+        uploaded.push(url);
+      } catch {
+        setUploadError("One or more images failed to upload. Try again.");
+      }
+    }
+    if (uploaded.length) onChange([...images, ...uploaded]);
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const removeImage = (i: number) => onChange(images.filter((_, j) => j !== i));
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <Label className="text-xs flex items-center gap-1.5">
-        <Image className="h-3.5 w-3.5 text-primary" /> Photos (up to 6)
+        <Image className="h-3.5 w-3.5 text-primary" /> Photos
+        <span className="text-muted-foreground">({images.length}/6)</span>
       </Label>
 
-      {/* Thumbnail row */}
+      {/* Thumbnail grid — always-visible remove button */}
       {images.length > 0 && (
         <div className="flex gap-2 flex-wrap">
           {images.map((url, i) => (
-            <div key={i} className="relative group">
+            <div key={i} className="relative">
               <img
                 src={url}
                 alt={`photo-${i + 1}`}
-                className="h-16 w-20 rounded-xl object-cover border border-border"
-                onError={e => { (e.target as HTMLImageElement).src = "https://placehold.co/80x64/1a1a2e/666?text=Error"; }}
+                className="h-20 w-24 rounded-xl object-cover border border-border"
+                referrerPolicy="no-referrer"
+                onError={e => {
+                  const el = e.target as HTMLImageElement;
+                  el.style.display = "none";
+                  el.nextElementSibling?.classList.remove("hidden");
+                }}
               />
+              {/* Error placeholder */}
+              <div className="hidden h-20 w-24 rounded-xl bg-muted border border-border flex items-center justify-center">
+                <p className="text-[10px] text-muted-foreground text-center px-1">Cannot<br/>preview</p>
+              </div>
+              {/* Always-visible remove button */}
               <button
-                onClick={() => onChange(images.filter((_, j) => j !== i))}
-                className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                type="button"
+                onClick={() => removeImage(i)}
+                className="absolute -top-1.5 -right-1.5 h-6 w-6 rounded-full bg-destructive text-white flex items-center justify-center shadow-md"
               >
-                <X className="h-3 w-3" />
+                <X className="h-3.5 w-3.5" />
               </button>
               {i === 0 && (
-                <span className="absolute bottom-1 left-1 text-[9px] font-black bg-black/60 text-white px-1 rounded">
+                <span className="absolute bottom-1 left-1 text-[9px] font-black bg-black/70 text-white px-1.5 py-0.5 rounded">
                   COVER
                 </span>
               )}
@@ -141,33 +174,64 @@ function ImageSection({
         </div>
       )}
 
-      {/* URL input */}
       {images.length < 6 && (
-        <div className="flex gap-2">
-          <div className="flex-1 relative">
-            <Link className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Paste image URL or Google Drive share link..."
-              value={urlInput}
-              onChange={e => setUrlInput(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addImage(); } }}
-              className="pl-8 h-9 text-xs"
-            />
-          </div>
+        <div className="space-y-2">
+          {/* Upload from device */}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={e => handleFiles(e.target.files)}
+          />
           <Button
             type="button"
-            size="sm"
             variant="outline"
-            className="h-9 text-xs flex-shrink-0"
-            onClick={addImage}
-            disabled={!urlInput.trim()}
+            className="w-full h-10 text-xs border-dashed gap-2"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
           >
-            Add
+            {uploading ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</>
+            ) : (
+              <><Upload className="h-4 w-4" /> Upload from Device / Camera</>
+            )}
           </Button>
+
+          {/* URL paste fallback */}
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              <Link className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Or paste a direct image URL…"
+                value={urlInput}
+                onChange={e => setUrlInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addUrl(); } }}
+                className="pl-8 h-9 text-xs"
+              />
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-9 text-xs flex-shrink-0"
+              onClick={addUrl}
+              disabled={!urlInput.trim()}
+            >
+              Add
+            </Button>
+          </div>
         </div>
       )}
+
+      {uploadError && (
+        <p className="text-[10px] text-destructive">{uploadError}</p>
+      )}
+
       <p className="text-[10px] text-muted-foreground">
-        Paste any direct image URL, or a Google Drive "Share" link — it's converted automatically.
+        Photos are hosted on a free image CDN — only the URL is saved to the database (no storage used).
+        Use "Upload from Device" for best results; paste a direct URL as an alternative.
       </p>
     </div>
   );
