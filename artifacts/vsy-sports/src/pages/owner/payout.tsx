@@ -390,6 +390,8 @@ export default function OwnerPayout() {
     const pending = booking.pendingCashAmount ?? Math.max(0, (booking.totalPrice || 0) - (booking.paidAmount || 0));
     return sum + pending;
   }, 0);
+  const ownerGrossBeforeCommission = (payout?.grossRevenue || 0) + (payout?.collectedCash || 0);
+  const ownerNetAfterCash = Math.max(0, (payout?.ownerEarnings || 0) - (payout?.collectedCash || 0));
 
   const onBankSaved = (newBd: any) => {
     setEditingBank(false);
@@ -524,7 +526,7 @@ export default function OwnerPayout() {
         <div className="mt-3">
           <div className="flex justify-between text-xs mb-1.5">
             <span className="text-muted-foreground">{settled}% settled</span>
-            <span className="font-bold">{fmtINR(payout?.payoutSent)} / {fmtINR(payout?.ownerEarnings)}</span>
+              <span className="font-bold">{fmtINR(payout?.payoutSent)} / {fmtINR(ownerNetAfterCash)}</span>
           </div>
           <div className="h-3 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
             <div className={cn("h-full rounded-full transition-all duration-500", settled === 100 ? "bg-emerald-500" : "bg-primary")}
@@ -541,7 +543,7 @@ export default function OwnerPayout() {
       <div className="grid grid-cols-2 gap-3">
         <Card className="p-4 border-none shadow-sm bg-primary text-primary-foreground">
           <IndianRupee className="h-4 w-4 mb-2 opacity-70" />
-          <p className="text-2xl font-black">{fmtINR(payout?.ownerEarnings)}</p>
+          <p className="text-2xl font-black">{fmtINR(ownerNetAfterCash)}</p>
           <p className="text-xs opacity-75 mt-1">Total Earned</p>
           <p className="text-[10px] opacity-50 mt-0.5">Your {ownerPct}% share</p>
         </Card>
@@ -561,7 +563,7 @@ export default function OwnerPayout() {
         </Card>
         <Card className="p-4 border-none shadow-sm">
           <IndianRupee className="h-4 w-4 mb-2 text-muted-foreground" />
-          <p className="text-2xl font-black">{fmtINR(payout?.grossRevenue)}</p>
+          <p className="text-2xl font-black">{fmtINR(ownerGrossBeforeCommission)}</p>
           <p className="text-xs text-muted-foreground mt-1">Gross Revenue</p>
           <p className="text-[10px] text-muted-foreground mt-0.5">
             Admin: {fmtINR(payout?.adminCommission)} ({payout?.commissionRate}%)
@@ -580,9 +582,9 @@ export default function OwnerPayout() {
         <h3 className="font-bold text-sm mb-3">Revenue Split</h3>
         <div className="space-y-3">
           {[
-            { label: "Gross Revenue",                              val: payout?.grossRevenue,    pct: 100,                      color: "bg-muted-foreground/20", textColor: "text-foreground" },
+            { label: "Gross Revenue",                              val: ownerGrossBeforeCommission, pct: 100,                    color: "bg-muted-foreground/20", textColor: "text-foreground" },
             { label: `Admin Commission (${payout?.commissionRate ?? 20}%)`, val: payout?.adminCommission, pct: payout?.commissionRate ?? 20, color: "bg-orange-400",          textColor: "text-orange-500" },
-            { label: `Your Share (${ownerPct}%)`,                  val: payout?.ownerEarnings,   pct: ownerPct,                 color: "bg-primary",             textColor: "text-primary" },
+            { label: `Your Share (${ownerPct}%)`,                  val: ownerNetAfterCash,       pct: ownerPct,                 color: "bg-primary",             textColor: "text-primary" },
           ].map((row, i) => (
             <div key={i}>
               <div className="flex justify-between text-xs mb-1">

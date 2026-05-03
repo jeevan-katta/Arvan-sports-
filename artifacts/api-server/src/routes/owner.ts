@@ -243,13 +243,15 @@ router.get("/owner/payout-status", authenticate, requireRole("turf_owner", "admi
     }
     const bookings = turfIds.length ? await Booking.find(bookingFilter).lean() : [];
     const grossRevenue = (bookings as any[]).reduce((s: number, b: any) => s + (b.totalPrice || 0), 0);
+    const collectedCash = (bookings as any[]).filter((b: any) => b.paymentStatus === "cash_collected").reduce((s: number, b: any) => s + Math.max(0, (b.totalPrice || 0) - (b.paidAmount || 0)), 0);
     const commissionRate = owner.commissionRate ?? 20;
     const adminCommission = Math.round(grossRevenue * commissionRate / 100);
     const ownerEarnings = grossRevenue - adminCommission;
     const payoutSent = owner.payoutSent ?? 0;
-    const pendingPayout = Math.max(0, ownerEarnings - payoutSent);
+    const adjustedOwnerEarnings = Math.max(0, ownerEarnings - collectedCash);
+    const adjustedPendingPayout = Math.max(0, adjustedOwnerEarnings - payoutSent);
     res.json({
-      commissionRate, ownerEarnings, adminCommission, grossRevenue, payoutSent, pendingPayout,
+      commissionRate, ownerEarnings: adjustedOwnerEarnings, adminCommission, grossRevenue, payoutSent, pendingPayout: adjustedPendingPayout, collectedCash,
       commissionHeld: owner.commissionHeld ?? false,
       payoutSchedule: owner.payoutSchedule ?? "manual",
       bankDetails: owner.bankDetails ?? {},
@@ -336,7 +338,9 @@ router.get("/owner/today", authenticate, requireRole("turf_owner", "admin"), asy
     const adminCommission = Math.round(grossRevenue * commissionRate / 100);
     const ownerEarnings  = grossRevenue - adminCommission;
     const payoutSent     = owner.payoutSent ?? 0;
-    const pendingPayout  = Math.max(0, ownerEarnings - payoutSent);
+    const collectedCash  = (todayBookings as any[]).filter((b: any) => b.paymentStatus === "cash_collected").reduce((s: number, b: any) => s + Math.max(0, (b.totalPrice || 0) - (b.paidAmount || 0)), 0);
+    const adjustedOwnerEarnings = Math.max(0, ownerEarnings - collectedCash);
+    const pendingPayout  = Math.max(0, adjustedOwnerEarnings - payoutSent);
 
     // Today's owner cut from today's paid bookings
     const todayOwnerCut = Math.round(todayRevenue * (1 - commissionRate / 100));
