@@ -85,8 +85,24 @@ export default function Home() {
       return haystack.includes(searchQuery);
     });
 
+    const searchIsEventLike =
+      searchQuery.includes("tournament") ||
+      searchQuery.includes("tornament") ||
+      searchQuery.includes("event") ||
+      searchQuery.includes("match") ||
+      searchQuery.includes("cup") ||
+      searchQuery.includes("league");
+    const searchIsTurfLike =
+      searchQuery.includes("turf") ||
+      searchQuery.includes("venue") ||
+      searchQuery.includes("ground") ||
+      searchQuery.includes("box") ||
+      searchQuery.includes("cricket");
     const shopMatch = searchQuery.includes("shop") || searchQuery.includes("store") || searchQuery.includes("product");
-    return { turfMatches, eventMatches, shopMatch };
+    const combinedMatches = searchQuery
+      ? [...turfMatches, ...eventMatches]
+      : [...(displayTurfs ?? []), ...(featuredEvents ?? [])];
+    return { turfMatches, eventMatches, shopMatch, searchIsEventLike, searchIsTurfLike, combinedMatches };
   }, [displayTurfs, featuredEvents, searchQuery]);
 
   return (
@@ -133,7 +149,7 @@ export default function Home() {
               <div>
                 <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-2">Matching Events</p>
                 <div className="space-y-2">
-                  {allSearchResults.eventMatches.length > 0 ? allSearchResults.eventMatches.slice(0, 3).map((event: any) => (
+                  {(allSearchResults.searchIsEventLike || allSearchResults.eventMatches.length > 0) ? allSearchResults.eventMatches.slice(0, 3).map((event: any) => (
                     <Link key={event.id} href={`/events/${event.id}`} className="flex items-center gap-3 rounded-xl border border-border p-2">
                       <div className="h-11 w-11 rounded-lg bg-muted overflow-hidden shrink-0 flex items-center justify-center">
                         {event.image ? <img src={event.image} alt={event.title} className="h-full w-full object-cover" /> : <Trophy className="h-5 w-5 text-primary" />}
@@ -143,10 +159,10 @@ export default function Home() {
                         <p className="text-xs text-muted-foreground truncate">{event.type === "tournament" ? "Tournament" : "Event"}{event.venue ? ` · ${event.venue}` : ""}</p>
                       </div>
                     </Link>
-                  )) : <p className="text-xs text-muted-foreground">No matching events.</p>}
+                  )) : <p className="text-xs text-muted-foreground">No matching tournaments or events.</p>}
                 </div>
               </div>
-              <Button variant="secondary" className="w-full rounded-xl" onClick={() => navigate(allSearchResults.shopMatch ? "/shop" : allSearchResults.eventMatches.length > 0 ? "/events" : "/turfs")}>
+              <Button variant="secondary" className="w-full rounded-xl" onClick={() => navigate(allSearchResults.shopMatch ? "/shop" : allSearchResults.searchIsEventLike ? "/events" : "/turfs")}>
                 Search all results
               </Button>
             </div>
