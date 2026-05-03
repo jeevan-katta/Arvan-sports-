@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   Building2, MapPin, IndianRupee, Edit3, Star, ExternalLink,
   Plus, X, Trash2, CheckCircle2, Clock, AlertCircle,
-  ChevronDown, ChevronUp, Image, Link, Sun, Moon, Upload, Loader2,
+  ChevronDown, ChevronUp, Image as ImageIcon, Link, Sun, Moon, Upload, Loader2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -163,7 +163,7 @@ function ImageSection({
   return (
     <div className="space-y-3">
       <Label className="text-xs flex items-center gap-1.5">
-        <Image className="h-3.5 w-3.5 text-primary" /> Photos
+        <ImageIcon className="h-3.5 w-3.5 text-primary" /> Photos
         <span className="text-muted-foreground">({images.length}/6)</span>
       </Label>
 
