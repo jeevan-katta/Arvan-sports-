@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useListBookings } from "@workspace/api-client-react";
 import { useLiveScores, ballColor } from "@/hooks/use-live-scores";
 import { MapPin, LogOut, Bell, Calendar, ShoppingBag, ChevronRight, Radio, Pencil, Check, X, Trophy, Users } from "lucide-react";
+import { PushToggle } from "@/components/PushPrompt";
 import { cn } from "@/lib/utils";
 
 export default function Profile() {
@@ -275,12 +276,8 @@ export default function Profile() {
               </div>
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </div>
-            <div className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Bell className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium text-sm">Notifications</span>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <div className="p-3">
+              <PushToggle />
             </div>
           </div>
         </div>

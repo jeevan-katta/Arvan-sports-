@@ -17,3 +17,5 @@ export { Notification } from "./models/Notification";
 export type { INotification } from "./models/Notification";
 export { Announcement } from "./models/Announcement";
 export type { IAnnouncement } from "./models/Announcement";
+export { PushSubscription } from "./models/PushSubscription";
+export type { IPushSubscription } from "./models/PushSubscription";

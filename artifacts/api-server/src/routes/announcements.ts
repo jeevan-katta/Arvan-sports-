@@ -39,6 +39,22 @@ async function fanOutNotifications(ann: any, excludeUserId: string) {
   } catch (_) {}
 }
 
+async function fanOutWebPush(ann: any, excludeUserId: string) {
+  try {
+    const { fanOutPush } = await import("./push");
+    await fanOutPush(
+      {
+        title:   ann.title,
+        body:    ann.message,
+        icon:    "/favicon.svg",
+        tag:     `announcement-${ann._id}`,
+        url:     "/events",
+      },
+      excludeUserId
+    );
+  } catch (_) {}
+}
+
 // GET /api/announcements — public
 router.get("/announcements", async (req: Request, res: Response) => {
   try {
@@ -67,7 +83,9 @@ router.post("/announcements", authenticate, requireRole("admin", "turf_owner"), 
       turfName: turfName || undefined,
       pinned: false,
     });
-    fanOutNotifications(ann, req.user!.id.toString());
+    const excludeId = req.user!.id.toString();
+    fanOutNotifications(ann, excludeId);
+    fanOutWebPush(ann, excludeId);
     res.status(201).json(announcementRes(ann));
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to create announcement" }); }
 });
