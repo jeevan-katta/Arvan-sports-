@@ -10,6 +10,18 @@ interface ImageUploadProps {
   token?: string;
 }
 
+async function uploadImage(file: File, token?: string) {
+  const form = new FormData();
+  form.append("file", file);
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch("/api/upload/image", { method: "POST", headers, body: form });
+  const data = await res.json();
+  const url = data.url || data.imageUrl || data.link;
+  if (!res.ok || !url) throw new Error(data.error || "Upload failed");
+  return url as string;
+}
+
 export function ImageUpload({ value, onChange, className, label = "Upload Image", token }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -20,14 +32,7 @@ export function ImageUpload({ value, onChange, className, label = "Upload Image"
     setUploading(true);
     setError("");
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const headers: Record<string, string> = {};
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch("/api/upload/image", { method: "POST", headers, body: form });
-      const data = await res.json();
-      if (!res.ok || !data.url) throw new Error(data.error || "Upload failed");
-      onChange(data.url);
+      onChange(await uploadImage(file, token));
     } catch (e: any) {
       setError(e.message || "Upload failed");
     } finally {
@@ -107,14 +112,7 @@ export function ImageUploadLight({ value, onChange, className, label = "Upload P
     setUploading(true);
     setError("");
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const headers: Record<string, string> = {};
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch("/api/upload/image", { method: "POST", headers, body: form });
-      const data = await res.json();
-      if (!res.ok || !data.url) throw new Error(data.error || "Upload failed");
-      onChange(data.url);
+      onChange(await uploadImage(file, token));
     } catch (e: any) {
       setError(e.message || "Upload failed");
     } finally {
