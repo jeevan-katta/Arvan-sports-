@@ -470,6 +470,100 @@ router.get("/admin/payouts/razorpay-status", authenticate, requireRole("admin"),
   res.json({ configured: isRazorpayXConfigured() });
 });
 
+router.post("/admin/payouts/bulk", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const { ownerIds, note, method } = req.body as { ownerIds: string[]; note?: string; method?: string };
+    if (!Array.isArray(ownerIds) || ownerIds.length === 0) {
+      res.status(400).json({ error: "ownerIds array required" }); return;
+    }
+    const { sendPayout, isRazorpayXConfigured } = await import("../lib/razorpay-payout");
+    const rzpEnabled = isRazorpayXConfigured();
+
+    const owners = await User.find({ _id: { $in: ownerIds }, role: "turf_owner", commissionHeld: { $ne: true } }).lean() as any[];
+    const ownerIdSet = new Set(owners.map((o: any) => o._id.toString()));
+    const [allTurfs, allBookings] = await Promise.all([
+      Turf.find({ ownerId: { $in: Array.from(ownerIdSet) } }).lean(),
+      Booking.find({ paymentStatus: "paid" }).lean(),
+    ]);
+    const turfIdToOwner: Record<string, string> = {};
+    const turfsByOwner: Record<string, any[]> = {};
+    for (const t of allTurfs as any[]) {
+      const oid = t.ownerId?.toString();
+      turfIdToOwner[t._id.toString()] = oid;
+      if (!turfsByOwner[oid]) turfsByOwner[oid] = [];
+      turfsByOwner[oid].push(t);
+    }
+    const bookingsByOwner: Record<string, any[]> = {};
+    for (const b of allBookings as any[]) {
+      const oid = turfIdToOwner[b.turfId?.toString()];
+      if (oid && ownerIdSet.has(oid)) {
+        if (!bookingsByOwner[oid]) bookingsByOwner[oid] = [];
+        bookingsByOwner[oid].push(b);
+      }
+    }
+
+    const results: any[] = [];
+    for (const owner of owners) {
+      const oid = owner._id.toString();
+      const bookings = bookingsByOwner[oid] || [];
+      const rate = owner.commissionRate ?? 20;
+      const grossRevenue = bookings.reduce((s: number, b: any) => s + (b.totalPrice || 0), 0);
+      const ownerEarnings = Math.round(grossRevenue * ((100 - rate) / 100));
+      const payoutSent = owner.totalPayoutSent || 0;
+      const pending = Math.max(0, ownerEarnings - payoutSent);
+      if (pending < 1) { results.push({ id: oid, name: owner.name, skipped: true, reason: "No pending amount" }); continue; }
+
+      let razorpayPayoutId: string | undefined;
+      let razorpayStatus: string | undefined;
+      let razorpayMode: string | undefined;
+      const useRzp = rzpEnabled && (method === "bank_transfer" || method === "upi" || !method) && (owner.bankDetails?.accountNumber || owner.bankDetails?.upiId);
+      if (useRzp) {
+        const result = await sendPayout({ id: oid, name: owner.name, email: owner.email, phone: owner.phone, razorpayContactId: owner.razorpayContactId, bankDetails: owner.bankDetails }, pending, note || `Bulk payout`, `bulk_${oid}_${Date.now()}`);
+        if (result.success) { razorpayPayoutId = result.payoutId; razorpayStatus = result.status; razorpayMode = result.mode; }
+      }
+      const payoutRecord: any = { amount: pending, date: new Date(), note: note || "Bulk payout", method: method || "bank_transfer", ...(razorpayPayoutId && { razorpayPayoutId, razorpayStatus, razorpayMode }) };
+      await User.findByIdAndUpdate(oid, { $inc: { totalPayoutSent: pending }, $push: { payoutHistory: payoutRecord } });
+      await Notification.create({ userId: oid, type: "payout_received", title: razorpayPayoutId ? "Payout Sent via Razorpay" : "Payout Processed", message: `₹${pending.toLocaleString("en-IN")} has been ${razorpayPayoutId ? "transferred to your account" : "recorded for transfer"}.`, amount: pending });
+      results.push({ id: oid, name: owner.name, amount: pending, razorpayPayoutId, razorpayStatus, success: true });
+    }
+    res.json({ results, processed: results.filter(r => r.success).length, skipped: results.filter(r => r.skipped).length });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Bulk payout failed" }); }
+});
+
+router.get("/admin/payouts/export", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const owners = await User.find({ role: "turf_owner" }).lean() as any[];
+    const ownerIds = owners.map((o: any) => o._id);
+    const [allTurfs, allBookings] = await Promise.all([
+      Turf.find({ ownerId: { $in: ownerIds } }).lean(),
+      Booking.find({ paymentStatus: "paid" }).lean(),
+    ]);
+    const turfIdToOwner: Record<string, string> = {};
+    for (const t of allTurfs as any[]) turfIdToOwner[t._id.toString()] = t.ownerId?.toString();
+    const bookingsByOwner: Record<string, any[]> = {};
+    for (const b of allBookings as any[]) {
+      const oid = turfIdToOwner[b.turfId?.toString()];
+      if (oid) { if (!bookingsByOwner[oid]) bookingsByOwner[oid] = []; bookingsByOwner[oid].push(b); }
+    }
+    const rows = [["Name", "Email", "Business", "Commission %", "Gross Revenue", "Admin Commission", "Owner Earnings", "Paid Out", "Pending", "Schedule", "Bank/UPI"].join(",")];
+    for (const o of owners) {
+      const oid = o._id.toString();
+      const bookings = bookingsByOwner[oid] || [];
+      const rate = o.commissionRate ?? 20;
+      const gross = bookings.reduce((s: number, b: any) => s + (b.totalPrice || 0), 0);
+      const adminCut = Math.round(gross * rate / 100);
+      const ownerEarn = Math.round(gross * (100 - rate) / 100);
+      const paid = o.totalPayoutSent || 0;
+      const pending = Math.max(0, ownerEarn - paid);
+      const bankInfo = o.bankDetails?.upiId || (o.bankDetails?.accountNumber ? `●●●●${o.bankDetails.accountNumber.slice(-4)}` : "—");
+      rows.push([o.name, o.email, o.businessName || "", rate, gross, adminCut, ownerEarn, paid, pending, o.payoutSchedule || "manual", bankInfo].join(","));
+    }
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="payouts_${Date.now()}.csv"`);
+    res.send(rows.join("\n"));
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Export failed" }); }
+});
+
 // ── Turfs ───────────────────────────────────────────────────────────────────────
 
 router.get("/admin/turfs", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
