@@ -54,7 +54,10 @@ export default function BookingDetail() {
   const handlePayment = async () => {
     if (!booking) return;
     try {
-      const paymentOrder = await createPaymentMutation.mutateAsync({ id: bookingId, paymentType } as any);
+      const paymentOrder = await createPaymentMutation.mutateAsync({
+        id: bookingId,
+        body: { paymentType },
+      } as any);
       const orderId: string = (paymentOrder as any).orderId || "";
       const paidAmount = Number((paymentOrder as any).paidAmount || 0);
       const isAdvance = paymentType === "advance";
@@ -80,7 +83,7 @@ export default function BookingDetail() {
       // Real Razorpay flow
       const rzpOptions = {
         key: (paymentOrder as any).key,
-        amount: (paymentOrder as any).amount,
+        amount: Math.round(paidAmount * 100),
         currency: (paymentOrder as any).currency || "INR",
         name: "Vsy Sports",
         description: isAdvance
