@@ -38,9 +38,12 @@ router.post("/auth/register", async (req: Request, res: Response) => {
 
 router.post("/auth/login", async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) { res.status(400).json({ error: "email and password required" }); return; }
-    const user = await User.findOne({ email });
+    const { email, phone, password } = req.body;
+    const identifier = typeof email === "string" && email.trim().length > 0 ? email.trim() : typeof phone === "string" && phone.trim().length > 0 ? phone.trim() : "";
+    if (!identifier || !password) { res.status(400).json({ error: "email/phone and password required" }); return; }
+    const user = await User.findOne({
+      $or: [{ email: identifier }, { phone: identifier }],
+    });
     if (!user) { res.status(401).json({ error: "Invalid credentials" }); return; }
     if (user.blocked) { res.status(403).json({ error: "Account is blocked" }); return; }
     const valid = await bcrypt.compare(password, user.passwordHash);

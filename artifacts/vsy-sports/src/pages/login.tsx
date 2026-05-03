@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Zap } from "lucide-react";
 
 const loginSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address" }),
+  identifier: z.string().min(1, { message: "Please enter your email or phone number" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
 });
 
@@ -29,14 +29,18 @@ export default function Login() {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
+      identifier: "",
       password: "",
     },
   });
 
   const onSubmit = (data: LoginFormValues) => {
     setIsLoading(true);
-    loginMutation.mutate({ data }, {
+    const payload = data.identifier.includes("@")
+      ? { email: data.identifier, password: data.password }
+      : { email: data.identifier, password: data.password };
+
+    loginMutation.mutate({ data: payload }, {
       onSuccess: (response) => {
         login(response.token, response.user);
         toast({
@@ -64,7 +68,7 @@ export default function Login() {
   };
 
   const fillAdminCredentials = () => {
-    form.setValue("email", "admin@vsysports.com");
+    form.setValue("identifier", "admin@vsysports.com");
     form.setValue("password", "Admin@123");
   };
 
@@ -84,12 +88,12 @@ export default function Login() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="email"
+              name="identifier"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>Email or Phone</FormLabel>
                   <FormControl>
-                    <Input placeholder="name@example.com" type="email" autoCapitalize="none" autoCorrect="off" disabled={isLoading} {...field} className="h-12 bg-muted/50 border-transparent focus-visible:ring-primary/50" />
+                    <Input placeholder="name@example.com or 9876543210" type="text" autoCapitalize="none" autoCorrect="off" disabled={isLoading} {...field} className="h-12 bg-muted/50 border-transparent focus-visible:ring-primary/50" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
