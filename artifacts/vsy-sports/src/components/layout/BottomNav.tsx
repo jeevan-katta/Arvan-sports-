@@ -2,7 +2,6 @@ import { Link, useLocation } from "wouter";
 import { Home, MapPin, Users, Calendar, ShoppingBag, User } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useGetCart } from "@workspace/api-client-react";
-import { Badge } from "@/components/ui/badge";
 
 export function BottomNav() {
   const [location] = useLocation();
@@ -20,7 +19,7 @@ export function BottomNav() {
     { name: "Venues", href: "/turfs", icon: MapPin },
     { name: "Community", href: "/community", icon: Users },
     { name: "Events", href: "/events", icon: Calendar },
-    { name: "Shop", href: "/shop", icon: ShoppingBag, badge: cart?.itemCount },
+    { name: "Shop", href: "/shop", icon: ShoppingBag },
     { name: "Profile", href: "/profile", icon: User },
   ];
 
@@ -36,11 +35,6 @@ export function BottomNav() {
             <Link key={item.name} href={item.href} className={`flex flex-col items-center justify-end min-w-0 h-full pb-1.5 space-y-1 ${isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
                 <div className="relative flex items-center justify-center">
                   <item.icon className="h-5 w-5" />
-                  {item.badge && item.badge > 0 && (
-                    <Badge className="absolute -top-2 -right-2 h-4 min-w-4 px-1 flex items-center justify-center text-[10px] leading-none bg-primary text-primary-foreground">
-                      {item.badge}
-                    </Badge>
-                  )}
                 </div>
                 <span className="text-[10px] font-medium leading-none">{item.name}</span>
             </Link>
