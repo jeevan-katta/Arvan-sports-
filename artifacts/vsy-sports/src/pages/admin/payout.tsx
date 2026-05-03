@@ -21,6 +21,7 @@ const hdr = (t: string) => ({ "Content-Type": "application/json", Authorization:
 
 type SortKey = "name" | "pending" | "grossRevenue" | "ownerEarnings" | "settlement" | "commissionRate";
 type SortDir = "asc" | "desc";
+type PeriodKey = "today" | "week" | "month";
 
 const SCHEDULE_CFG: Record<string, { label: string; color: string; dot: string; icon: any; desc: string }> = {
   immediate: { label: "Instant",  color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/25", dot: "bg-emerald-400", icon: Zap,      desc: "Paid on every booking" },
@@ -67,6 +68,12 @@ function StatCard({ label, value, sub, color, icon: Icon }: { label: string; val
   );
 }
 
+const periodConfig: Record<PeriodKey, { label: string; desc: string }> = {
+  today: { label: "Today", desc: "Current day records" },
+  week: { label: "Weekly", desc: "Last 7 days" },
+  month: { label: "Monthly", desc: "Last 30 days" },
+};
+
 function SortBtn({ label, sortKey, current, dir, onSort }: { label: string; sortKey: SortKey; current: SortKey; dir: SortDir; onSort: (k: SortKey) => void }) {
   const active = current === sortKey;
   return (
@@ -89,6 +96,7 @@ export default function AdminPayout() {
   // list state
   const [search, setSearch]         = useState("");
   const [filter, setFilter]         = useState<"all"|"pending"|"auto"|"held"|"settled">("all");
+  const [period, setPeriod]         = useState<PeriodKey>("today");
   const [sortKey, setSortKey]       = useState<SortKey>("pending");
   const [sortDir, setSortDir]       = useState<SortDir>("desc");
   const [selected, setSelected]     = useState<Set<string>>(new Set());
@@ -236,15 +244,24 @@ export default function AdminPayout() {
     return list;
   }, [owners, search, filter, sortKey, sortDir]);
 
+  const perioded = useMemo(() => {
+    const days = period === "today" ? 1 : period === "week" ? 7 : 30;
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+    return (owners as any[]).filter((o: any) => {
+      const ts = o.updatedAt ? new Date(o.updatedAt).getTime() : 0;
+      return period === "today" ? true : ts >= cutoff;
+    });
+  }, [owners, period]);
+
   /* ── aggregate stats ── */
-  const totalGross    = (owners as any[]).reduce((s: number, o: any) => s + (o.grossRevenue || 0), 0);
-  const totalComm     = (owners as any[]).reduce((s: number, o: any) => s + (o.adminCommission || 0), 0);
-  const totalEarnings = (owners as any[]).reduce((s: number, o: any) => s + (o.ownerEarnings || 0), 0);
-  const totalPaid     = (owners as any[]).reduce((s: number, o: any) => s + (o.payoutSent || 0), 0);
-  const totalPending  = (owners as any[]).reduce((s: number, o: any) => s + (o.pendingPayout || 0), 0);
-  const autoCount     = (owners as any[]).filter((o: any) => o.payoutSchedule === "immediate" || o.payoutSchedule === "daily").length;
-  const pendingCount  = (owners as any[]).filter((o: any) => o.pendingPayout > 0 && !o.commissionHeld).length;
-  const heldCount     = (owners as any[]).filter((o: any) => o.commissionHeld).length;
+  const totalGross    = perioded.reduce((s: number, o: any) => s + (o.grossRevenue || 0), 0);
+  const totalComm     = perioded.reduce((s: number, o: any) => s + (o.adminCommission || 0), 0);
+  const totalEarnings = perioded.reduce((s: number, o: any) => s + (o.ownerEarnings || 0), 0);
+  const totalPaid     = perioded.reduce((s: number, o: any) => s + (o.payoutSent || 0), 0);
+  const totalPending  = perioded.reduce((s: number, o: any) => s + (o.pendingPayout || 0), 0);
+  const autoCount     = perioded.filter((o: any) => o.payoutSchedule === "immediate" || o.payoutSchedule === "daily").length;
+  const pendingCount  = perioded.filter((o: any) => o.pendingPayout > 0 && !o.commissionHeld).length;
+  const heldCount     = perioded.filter((o: any) => o.commissionHeld).length;
   const settlePct     = totalEarnings > 0 ? Math.round((totalPaid / totalEarnings) * 100) : 0;
 
   const selectedOwners = (owners as any[]).filter((o: any) => selected.has(o.id));
@@ -274,14 +291,25 @@ export default function AdminPayout() {
         <div className="p-4 md:p-6">
 
           {/* ── Header ─────────────────────────────────────────────────────── */}
-          <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
-            <div>
-              <h2 className="text-xl font-black tracking-tight flex items-center gap-2">
-                <Wallet className="h-5 w-5 text-emerald-400" /> Payout Manager
-              </h2>
-              <p className="text-white/35 text-xs mt-0.5">
-                {(owners as any[]).length} owners · {pendingCount} pending · {heldCount} held · {autoCount} auto
-              </p>
+          <div className="flex items-start justify-between gap-3 mb-5 flex-wrap">
+            <div className="space-y-2">
+              <div>
+                <h2 className="text-xl font-black tracking-tight flex items-center gap-2">
+                  <Wallet className="h-5 w-5 text-emerald-400" /> Payout Manager
+                </h2>
+                <p className="text-white/35 text-xs mt-0.5">
+                  Clear cash vs online settlement, easy payout tracking, and simple maintenance
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {(["today","week","month"] as PeriodKey[]).map(p => (
+                  <button key={p} onClick={() => setPeriod(p)}
+                    className={cn("px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all",
+                      period === p ? "bg-primary text-white border-primary" : "bg-white/[0.04] text-white/45 border-white/10 hover:text-white hover:border-white/20")}>
+                    {periodConfig[p].label}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <div className={cn("flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border",
@@ -309,7 +337,7 @@ export default function AdminPayout() {
             <StatCard label="Owner Earnings"   value={fmtINR(totalEarnings)} sub="Total owed to owners"  color="bg-emerald-500/10 border-emerald-500/20 text-emerald-400" icon={TrendingUp} />
             <StatCard label="Total Paid Out"   value={fmtINR(totalPaid)} sub={`${settlePct}% settled`}  color="bg-blue-500/10 border-blue-500/20 text-blue-400" icon={CheckCircle2} />
             <StatCard label="Pending Payouts"  value={fmtINR(totalPending)} sub={`${pendingCount} owners`}  color="bg-amber-500/10 border-amber-500/20 text-amber-400" icon={Clock} />
-            <StatCard label="Auto-Payout"      value={String(autoCount)} sub="Instant + Daily owners"   color="bg-sky-500/10 border-sky-500/20 text-sky-400" icon={Zap} />
+            <StatCard label="Auto-Payout"      value={String(autoCount)} sub={`${periodConfig[period].desc}`}   color="bg-sky-500/10 border-sky-500/20 text-sky-400" icon={Zap} />
           </div>
 
           {/* ── Settlement bar ─────────────────────────────────────────────── */}
