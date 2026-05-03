@@ -417,6 +417,63 @@ router.delete("/admin/owners/:id", authenticate, requireRole("admin"), async (re
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to delete owner" }); }
 });
 
+// ── Turfs ───────────────────────────────────────────────────────────────────────
+
+router.get("/admin/turfs", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const { status } = req.query as any;
+    const filter: any = {};
+    if (status && status !== "all") filter.status = status;
+    const turfs = await Turf.find(filter).sort({ createdAt: -1 }).lean();
+    const ownerIds = [...new Set((turfs as any[]).map((t: any) => t.ownerId?.toString()).filter(Boolean))];
+    const owners = await User.find({ _id: { $in: ownerIds } }, "name email phone businessName").lean();
+    const ownerMap = Object.fromEntries(owners.map((o: any) => [o._id.toString(), o]));
+    res.json(turfs.map((t: any) => {
+      const owner = ownerMap[t.ownerId?.toString()] || {};
+      return {
+        ...turfRes(t, (owner as any).name),
+        ownerEmail: (owner as any).email,
+        ownerPhone: (owner as any).phone,
+        ownerBusiness: (owner as any).businessName,
+      };
+    }));
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch turfs" }); }
+});
+
+router.patch("/admin/turfs/:id/status", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const { status, reason } = req.body;
+    if (!["approved", "rejected", "pending"].includes(status)) {
+      res.status(400).json({ error: "Invalid status. Use: approved, rejected, pending" }); return;
+    }
+    const turf = await Turf.findById(req.params.id).lean() as any;
+    if (!turf) { res.status(404).json({ error: "Turf not found" }); return; }
+
+    const updated = await Turf.findByIdAndUpdate(req.params.id, { status }, { new: true }).lean() as any;
+
+    // Notify the owner
+    if (turf.ownerId) {
+      if (status === "approved") {
+        await Notification.create({
+          userId: turf.ownerId,
+          type: "turf_approved",
+          title: "Turf Approved!",
+          message: `Your turf "${turf.name}" has been approved and is now live on the platform. Customers can start booking it.`,
+        });
+      } else if (status === "rejected") {
+        await Notification.create({
+          userId: turf.ownerId,
+          type: "turf_rejected",
+          title: "Turf Not Approved",
+          message: `Your turf "${turf.name}" was not approved.${reason ? ` Reason: ${reason}` : " Please contact admin for more details."}`,
+        });
+      }
+    }
+
+    res.json(turfRes(updated));
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to update turf status" }); }
+});
+
 // ── All Bookings ───────────────────────────────────────────────────────────────
 router.get("/admin/bookings", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
   try {

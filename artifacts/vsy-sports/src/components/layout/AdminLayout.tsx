@@ -14,6 +14,7 @@ interface AdminLayoutProps {
 const NAV_ITEMS = [
   { name: "Dashboard", href: "/admin",        icon: LayoutDashboard, exact: true },
   { name: "Owners",    href: "/admin/owners", icon: Building2 },
+  { name: "Turfs",     href: "/admin/turfs",  icon: Building2 },
   { name: "Users",     href: "/admin/users",  icon: Users },
   { name: "Payout",    href: "/admin/payout", icon: Wallet },
   { name: "Shop",      href: "/admin/shop",   icon: ShoppingBag },
