@@ -3,7 +3,9 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { setupWebSocket, loadMatchesFromDB, purgeOldMatches } from "./lib/live-scores";
 import { cancelExpiredBookings } from "./routes/bookings";
+import { runDailyPayouts } from "./lib/auto-payout";
 import { connectDB } from "@workspace/db";
+import cron from "node-cron";
 
 const rawPort = process.env["PORT"];
 
@@ -30,6 +32,12 @@ connectDB()
     setInterval(() => cancelExpiredBookings().catch(() => {}), 60_000);
     // Every hour: purge matches older than 7 days
     setInterval(() => purgeOldMatches().catch(() => {}), 60 * 60_000);
+
+    // Daily payout cron — runs every day at 00:05 IST (18:35 UTC)
+    cron.schedule("35 18 * * *", () => {
+      logger.info("Cron: starting daily owner payouts");
+      runDailyPayouts().catch((err) => logger.error({ err }, "Daily payout cron error"));
+    }, { timezone: "UTC" });
 
     server.listen(port, () => {
       logger.info({ port }, "Server listening");

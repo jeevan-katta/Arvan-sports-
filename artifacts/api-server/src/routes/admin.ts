@@ -14,11 +14,15 @@ function userRes(u: any) {
     commissionHeld: u.commissionHeld || false,
     payoutSchedule: u.payoutSchedule || "manual",
     bankDetails: u.bankDetails || {},
+    razorpayContactId: u.razorpayContactId,
     totalPayoutSent: u.totalPayoutSent || 0,
     payoutHistory: (u.payoutHistory || []).map((p: any) => ({
       id: p._id?.toString(), amount: p.amount,
       date: p.date instanceof Date ? p.date.toISOString() : p.date,
       note: p.note, method: p.method || "bank_transfer",
+      razorpayPayoutId: p.razorpayPayoutId,
+      razorpayStatus: p.razorpayStatus,
+      razorpayMode: p.razorpayMode,
     })),
     createdAt: u.createdAt?.toISOString(),
   };
@@ -389,22 +393,56 @@ router.post("/admin/owners/:id/payout", authenticate, requireRole("admin"), asyn
     if (!owner) { res.status(404).json({ error: "Owner not found" }); return; }
     if (owner.commissionHeld) { res.status(400).json({ error: "Commission is on hold for this owner" }); return; }
 
-    const payoutRecord = { amount: Number(amount), date: new Date(), note: note || "", method: method || "bank_transfer" };
+    const amt = Number(amount);
+    let razorpayPayoutId: string | undefined;
+    let razorpayStatus: string | undefined;
+    let razorpayMode: string | undefined;
+    let rzpError: string | undefined;
+
+    const useRazorpay = (method === "bank_transfer" || method === "upi") &&
+      (owner.bankDetails?.accountNumber || owner.bankDetails?.upiId);
+
+    if (useRazorpay) {
+      const { sendPayout, isRazorpayXConfigured } = await import("../lib/razorpay-payout");
+      if (isRazorpayXConfigured()) {
+        const result = await sendPayout(
+          { id: req.params.id, name: owner.name, email: owner.email, phone: owner.phone, razorpayContactId: owner.razorpayContactId, bankDetails: owner.bankDetails },
+          amt,
+          note || `Admin payout`,
+          `admin_${req.params.id}_${Date.now()}`,
+        );
+        if (result.success) {
+          razorpayPayoutId = result.payoutId;
+          razorpayStatus = result.status;
+          razorpayMode = result.mode;
+        } else {
+          rzpError = result.error;
+        }
+      }
+    }
+
+    const payoutRecord: any = {
+      amount: amt, date: new Date(), note: note || "",
+      method: method || "bank_transfer",
+      ...(razorpayPayoutId && { razorpayPayoutId, razorpayStatus, razorpayMode }),
+    };
+
     const updated = await User.findByIdAndUpdate(
       req.params.id,
-      { $inc: { totalPayoutSent: Number(amount) }, $push: { payoutHistory: payoutRecord } },
+      { $inc: { totalPayoutSent: amt }, $push: { payoutHistory: payoutRecord } },
       { new: true }
     ).lean();
-    // Send notification to owner
+
     const methodLabel: Record<string, string> = { bank_transfer: "Bank Transfer", upi: "UPI", cash: "Cash", cheque: "Cheque" };
     await Notification.create({
       userId: req.params.id,
       type: "payout_received",
-      title: "Payout Processed",
-      message: `₹${Number(amount).toLocaleString("en-IN")} has been sent via ${methodLabel[method] || "Bank Transfer"}.${note ? ` Note: ${note}` : ""}`,
-      amount: Number(amount),
+      title: razorpayPayoutId ? "Payout Sent via Razorpay" : "Payout Recorded",
+      message: `₹${amt.toLocaleString("en-IN")} ${razorpayPayoutId ? "has been transferred to your account via Razorpay" : `has been recorded via ${methodLabel[method] || "Bank Transfer"}`}.${note ? ` Note: ${note}` : ""}`,
+      amount: amt,
     });
-    res.json(userRes(updated!));
+
+    res.json({ ...userRes(updated!), razorpayPayoutId, razorpayStatus, rzpError });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to record payout" }); }
 });
 
@@ -415,6 +453,21 @@ router.delete("/admin/owners/:id", authenticate, requireRole("admin"), async (re
     await User.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to delete owner" }); }
+});
+
+// ── Batch payout trigger ──────────────────────────────────────────────────────
+
+router.post("/admin/payouts/run-batch", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const { runDailyPayouts } = await import("../lib/auto-payout");
+    const result = await runDailyPayouts();
+    res.json({ success: true, ...result });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Batch payout failed" }); }
+});
+
+router.get("/admin/payouts/razorpay-status", authenticate, requireRole("admin"), async (_req: AuthRequest, res: Response) => {
+  const { isRazorpayXConfigured } = await import("../lib/razorpay-payout");
+  res.json({ configured: isRazorpayXConfigured() });
 });
 
 // ── Turfs ───────────────────────────────────────────────────────────────────────

@@ -190,13 +190,21 @@ router.post("/bookings/:id/verify-payment", authenticate, async (req: AuthReques
 
     const booking = await Booking.findById(req.params.id).lean() as any;
     if (!booking) { res.status(404).json({ error: "Booking not found" }); return; }
+    const newPaymentStatus = booking.paymentType === "advance" ? "partially_paid" : "paid";
     const updated = await Booking.findByIdAndUpdate(req.params.id, {
-      paymentStatus: booking.paymentType === "advance" ? "partially_paid" : "paid",
+      paymentStatus: newPaymentStatus,
       status: "confirmed",
       razorpayPaymentId: razorpayPaymentId || `sim_pay_${Date.now()}`,
       expiresAt: null,
     }, { new: true }).lean();
     res.json(bookingRes(updated));
+
+    // Trigger immediate owner payout in background (non-blocking)
+    if (newPaymentStatus === "paid" && booking.turfId) {
+      import("../lib/auto-payout").then(({ triggerOwnerPayout }) => {
+        triggerOwnerPayout(req.params.id, booking.totalPrice || 0, booking.turfId.toString()).catch(() => {});
+      }).catch(() => {});
+    }
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to verify payment" }); }
 });
 

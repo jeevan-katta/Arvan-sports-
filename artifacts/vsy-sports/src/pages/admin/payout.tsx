@@ -3,9 +3,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Wallet, Search, CheckCircle2, Clock, AlertCircle,
-  History, IndianRupee, ArrowUpRight, Building2, Phone,
-  Mail, CreditCard, ChevronDown, ChevronUp, RefreshCw, Calendar,
+  Wallet, Search, CheckCircle2, AlertCircle,
+  History, IndianRupee, Building2, Phone,
+  Mail, CreditCard, ChevronDown, ChevronUp, RefreshCw, Zap, Clock,
+  PlayCircle, ShieldCheck, ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,25 @@ import { format } from "date-fns";
 
 const fmtINR = (n: number | undefined | null) => `₹${(n || 0).toLocaleString("en-IN")}`;
 const hdr = (t: string) => ({ "Content-Type": "application/json", Authorization: `Bearer ${t}` });
+
+const SCHEDULE_LABELS: Record<string, { label: string; color: string; icon: any }> = {
+  immediate: { label: "Instant", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/25", icon: Zap },
+  daily: { label: "Daily", color: "text-blue-400 bg-blue-500/10 border-blue-500/25", icon: Clock },
+  weekly: { label: "Weekly", color: "text-violet-400 bg-violet-500/10 border-violet-500/25", icon: RefreshCw },
+  manual: { label: "Manual", color: "text-white/40 bg-white/[0.05] border-white/10", icon: Building2 },
+};
+
+function RazorpayBadge({ payoutId, status }: { payoutId?: string; status?: string }) {
+  if (!payoutId) return null;
+  const color = status === "processed" ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
+    : status === "queued" ? "text-amber-400 border-amber-500/30 bg-amber-500/10"
+      : "text-blue-400 border-blue-500/30 bg-blue-500/10";
+  return (
+    <span className={cn("inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider", color)}>
+      <ShieldCheck className="h-2.5 w-2.5" /> Razorpay · {status || "sent"}
+    </span>
+  );
+}
 
 export default function AdminPayout() {
   const { token } = useAuth();
@@ -29,11 +49,22 @@ export default function AdminPayout() {
   const [payoutAmount, setPayoutAmount] = useState("");
   const [payoutNote, setPayoutNote] = useState("");
   const [payoutMethod, setPayoutMethod] = useState("bank_transfer");
+  const [scheduleOwner, setScheduleOwner] = useState<any>(null);
+  const [scheduleValue, setScheduleValue] = useState("manual");
 
   const { data: owners = [], isLoading } = useQuery({
     queryKey: ["admin-owners"],
     queryFn: async () => {
       const r = await fetch("/api/admin/owners", { headers: { Authorization: `Bearer ${token}` } });
+      return r.json();
+    },
+    enabled: !!token,
+  });
+
+  const { data: rzpStatus } = useQuery({
+    queryKey: ["rzp-status"],
+    queryFn: async () => {
+      const r = await fetch("/api/admin/payouts/razorpay-status", { headers: { Authorization: `Bearer ${token}` } });
       return r.json();
     },
     enabled: !!token,
@@ -62,12 +93,47 @@ export default function AdminPayout() {
       if (!r.ok) throw new Error((await r.json()).error);
       return r.json();
     },
-    onSuccess: () => {
-      toast({ title: "Payout recorded successfully!" });
+    onSuccess: (data) => {
+      if (data.razorpayPayoutId) {
+        toast({ title: "Razorpay payout sent!", description: `ID: ${data.razorpayPayoutId} · ${data.razorpayStatus}` });
+      } else if (data.rzpError) {
+        toast({ title: "Payout recorded (manual)", description: `Razorpay: ${data.rzpError}` });
+      } else {
+        toast({ title: "Payout recorded successfully!" });
+      }
       setPayoutOwner(null); setPayoutAmount(""); setPayoutNote("");
       invalidate();
     },
     onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.message }),
+  });
+
+  const batchMut = useMutation({
+    mutationFn: async () => {
+      const r = await fetch("/api/admin/payouts/run-batch", { method: "POST", headers: hdr(token!) });
+      if (!r.ok) throw new Error("Batch failed");
+      return r.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "Batch complete!", description: `Processed: ${data.processed} · Skipped: ${data.skipped} · Failed: ${data.failed}` });
+      invalidate();
+    },
+    onError: () => toast({ variant: "destructive", title: "Batch payout failed" }),
+  });
+
+  const scheduleMut = useMutation({
+    mutationFn: async ({ id, schedule }: { id: string; schedule: string }) => {
+      const r = await fetch(`/api/admin/owners/${id}`, {
+        method: "PUT", headers: hdr(token!),
+        body: JSON.stringify({ payoutSchedule: schedule }),
+      });
+      if (!r.ok) throw new Error("Failed");
+      return r.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Payout schedule updated!" });
+      setScheduleOwner(null);
+      invalidate();
+    },
   });
 
   const filtered = useMemo(() => {
@@ -88,16 +154,38 @@ export default function AdminPayout() {
   const totalEarnings = owners.reduce((s: number, o: any) => s + (o.ownerEarnings || 0), 0);
   const pendingOwners = owners.filter((o: any) => o.pendingPayout > 0 && !o.commissionHeld).length;
   const heldCount = owners.filter((o: any) => o.commissionHeld).length;
+  const autoOwners = owners.filter((o: any) => o.payoutSchedule === "immediate" || o.payoutSchedule === "daily").length;
 
   return (
     <div className="p-4 md:p-8 text-white min-h-screen">
 
       {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-xl md:text-2xl font-black tracking-tight flex items-center gap-2">
-          <Wallet className="h-6 w-6 text-emerald-400" /> Payout Management
-        </h2>
-        <p className="text-white/40 text-sm mt-0.5">{owners.length} owners · {pendingOwners} with pending payouts</p>
+      <div className="mb-5 flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-xl md:text-2xl font-black tracking-tight flex items-center gap-2">
+            <Wallet className="h-6 w-6 text-emerald-400" /> Payout Management
+          </h2>
+          <p className="text-white/40 text-sm mt-0.5">{owners.length} owners · {pendingOwners} pending · {autoOwners} on auto-payout</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Razorpay X status badge */}
+          <div className={cn("flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border",
+            rzpStatus?.configured
+              ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
+              : "bg-white/[0.05] border-white/10 text-white/30")}>
+            <ShieldCheck className="h-3.5 w-3.5" />
+            {rzpStatus?.configured ? "Razorpay X Live" : "Razorpay X Not Set"}
+          </div>
+          <Button
+            size="sm"
+            className="h-9 bg-blue-600 hover:bg-blue-700 font-bold gap-1.5 text-xs"
+            onClick={() => batchMut.mutate()}
+            disabled={batchMut.isPending}
+          >
+            <PlayCircle className="h-3.5 w-3.5" />
+            {batchMut.isPending ? "Running..." : "Run Daily Batch"}
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -117,10 +205,10 @@ export default function AdminPayout() {
           <p className="text-2xl font-black text-amber-400 mt-1">{fmtINR(totalPending)}</p>
           <p className="text-[10px] text-white/25 mt-1">{pendingOwners} owners awaiting</p>
         </div>
-        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
-          <p className="text-[10px] font-black text-red-400/60 uppercase tracking-wider">Held Accounts</p>
-          <p className="text-2xl font-black text-red-400 mt-1">{heldCount}</p>
-          <p className="text-[10px] text-white/25 mt-1">Payouts frozen</p>
+        <div className="bg-violet-500/10 border border-violet-500/20 rounded-2xl p-4">
+          <p className="text-[10px] font-black text-violet-400/60 uppercase tracking-wider">Auto-Payout</p>
+          <p className="text-2xl font-black text-violet-400 mt-1">{autoOwners}</p>
+          <p className="text-[10px] text-white/25 mt-1">Instant + daily schedule</p>
         </div>
       </div>
 
@@ -184,13 +272,17 @@ export default function AdminPayout() {
               : 100;
             const isExpanded = expanded === owner.id;
             const hasPending = owner.pendingPayout > 0;
+            const schedInfo = SCHEDULE_LABELS[owner.payoutSchedule || "manual"] || SCHEDULE_LABELS.manual;
+            const SchedIcon = schedInfo.icon;
+            const isAutomatic = owner.payoutSchedule === "immediate" || owner.payoutSchedule === "daily";
 
             return (
               <div key={owner.id} className={cn(
                 "border rounded-2xl overflow-hidden transition-all",
                 owner.commissionHeld ? "bg-red-500/[0.04] border-red-500/20" :
-                  hasPending ? "bg-white/[0.04] border-white/[0.08] hover:border-white/15" :
-                    "bg-white/[0.02] border-white/[0.05]"
+                  isAutomatic ? "bg-violet-500/[0.03] border-violet-500/15" :
+                    hasPending ? "bg-white/[0.04] border-white/[0.08] hover:border-white/15" :
+                      "bg-white/[0.02] border-white/[0.05]"
               )}>
                 {/* Main Row */}
                 <div className="flex items-center gap-3 p-4">
@@ -207,6 +299,12 @@ export default function AdminPayout() {
                         <span className="text-[10px] text-white/30 bg-white/[0.05] px-2 py-0.5 rounded-full">{owner.businessName}</span>}
                       {owner.commissionHeld &&
                         <span className="text-[9px] font-black bg-red-500/15 text-red-400 border border-red-500/25 px-2 py-0.5 rounded-full uppercase tracking-wider">HELD</span>}
+                      <button
+                        onClick={() => { setScheduleOwner(owner); setScheduleValue(owner.payoutSchedule || "manual"); }}
+                        className={cn("inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider transition-opacity hover:opacity-80", schedInfo.color)}
+                      >
+                        <SchedIcon className="h-2.5 w-2.5" /> {schedInfo.label}
+                      </button>
                       <span className={cn("text-[9px] font-bold px-2 py-0.5 rounded-full",
                         settled === 100 ? "bg-emerald-500/10 text-emerald-400" :
                           settled >= 50 ? "bg-blue-500/10 text-blue-400" : "bg-amber-500/10 text-amber-400")}>
@@ -216,7 +314,7 @@ export default function AdminPayout() {
                     <div className="flex items-center gap-3 mt-1.5">
                       <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
                         <div className={cn("h-full rounded-full transition-all",
-                          settled === 100 ? "bg-emerald-500" : "bg-primary")}
+                          settled === 100 ? "bg-emerald-500" : isAutomatic ? "bg-violet-500" : "bg-primary")}
                           style={{ width: `${settled}%` }} />
                       </div>
                       <span className="text-[10px] text-white/30 flex-shrink-0">
@@ -234,8 +332,8 @@ export default function AdminPayout() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[9px] text-white/30 font-bold uppercase">Schedule</p>
-                      <p className="font-bold text-xs text-white/50 capitalize">{owner.payoutSchedule || "manual"}</p>
+                      <p className="text-[9px] text-white/30 font-bold uppercase">Commission</p>
+                      <p className="font-bold text-xs text-white/50">{owner.commissionRate ?? 20}%</p>
                     </div>
                   </div>
 
@@ -280,12 +378,12 @@ export default function AdminPayout() {
                     <p className="font-black text-emerald-400 mt-0.5">{fmtINR(owner.ownerEarnings)}</p>
                   </div>
                   <div className="flex-1 bg-white/[0.04] rounded-xl p-2 text-center">
-                    <p className="text-white/25 text-[9px] font-bold uppercase">Schedule</p>
-                    <p className="font-black text-white/50 capitalize mt-0.5 text-[10px]">{owner.payoutSchedule || "manual"}</p>
+                    <p className="text-white/25 text-[9px] font-bold uppercase">Commission</p>
+                    <p className="font-black text-white/50 capitalize mt-0.5 text-[10px]">{owner.commissionRate ?? 20}%</p>
                   </div>
                 </div>
 
-                {/* Expanded: payout history */}
+                {/* Expanded: bank + payout history */}
                 {isExpanded && (
                   <div className="border-t border-white/[0.06] p-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -293,7 +391,7 @@ export default function AdminPayout() {
                       <div className="bg-white/[0.03] rounded-xl p-4">
                         <p className="text-[10px] font-black text-white/30 uppercase tracking-wider mb-3">Bank Details</p>
                         {!owner.bankDetails || !Object.values(owner.bankDetails).some(Boolean) ? (
-                          <p className="text-sm text-white/20">No bank details on file</p>
+                          <p className="text-sm text-white/20">No bank details on file — auto-payout disabled</p>
                         ) : (
                           <div className="space-y-2 text-sm">
                             {owner.bankDetails.bankName && <div className="flex gap-2"><CreditCard className="h-3.5 w-3.5 text-white/25 mt-0.5 flex-shrink-0"/><span className="text-white/60">{owner.bankDetails.bankName}</span></div>}
@@ -302,6 +400,11 @@ export default function AdminPayout() {
                             {owner.bankDetails.ifscCode && <div className="flex gap-2"><span className="text-white/25 text-xs min-w-[48px]">IFSC</span><span className="text-white/60 font-mono">{owner.bankDetails.ifscCode}</span></div>}
                             {owner.bankDetails.upiId && <div className="flex gap-2"><span className="text-white/25 text-xs min-w-[48px]">UPI</span><span className="text-white/60">{owner.bankDetails.upiId}</span></div>}
                           </div>
+                        )}
+                        {owner.razorpayContactId && (
+                          <p className="mt-2 text-[10px] text-emerald-400/60 flex items-center gap-1">
+                            <ShieldCheck className="h-3 w-3" /> Razorpay Contact: {owner.razorpayContactId}
+                          </p>
                         )}
                         <div className="mt-3 pt-3 border-t border-white/[0.06] flex items-center gap-2 text-xs text-white/30">
                           <Mail className="h-3 w-3" />{owner.email}
@@ -320,14 +423,21 @@ export default function AdminPayout() {
                         ) : (
                           <div className="space-y-2">
                             {[...owner.payoutHistory].reverse().slice(0, 3).map((p: any, i: number) => (
-                              <div key={i} className="flex items-center justify-between gap-2 text-sm">
-                                <div className="flex items-center gap-2">
-                                  <CheckCircle2 className="h-3 w-3 text-emerald-400 flex-shrink-0" />
-                                  <div>
-                                    <p className="font-bold text-emerald-400">{fmtINR(p.amount)}</p>
-                                    <p className="text-[10px] text-white/25 capitalize">{p.method?.replace("_", " ")} · {p.date ? format(new Date(p.date), "dd MMM") : "—"}</p>
+                              <div key={i} className="space-y-1">
+                                <div className="flex items-center justify-between gap-2 text-sm">
+                                  <div className="flex items-center gap-2">
+                                    <CheckCircle2 className="h-3 w-3 text-emerald-400 flex-shrink-0" />
+                                    <div>
+                                      <p className="font-bold text-emerald-400">{fmtINR(p.amount)}</p>
+                                      <p className="text-[10px] text-white/25 capitalize">{p.method?.replace("_", " ")} · {p.date ? format(new Date(p.date), "dd MMM") : "—"}</p>
+                                    </div>
                                   </div>
                                 </div>
+                                {p.razorpayPayoutId && (
+                                  <div className="ml-5">
+                                    <RazorpayBadge payoutId={p.razorpayPayoutId} status={p.razorpayStatus} />
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -346,16 +456,83 @@ export default function AdminPayout() {
         </div>
       )}
 
+      {/* ─── Schedule Dialog ─── */}
+      {scheduleOwner && (
+        <Dialog open={!!scheduleOwner} onOpenChange={() => setScheduleOwner(null)}>
+          <DialogContent className="sm:max-w-xs bg-[#161924] border-white/10 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-white flex items-center gap-2">
+                <Zap className="h-4 w-4 text-violet-400" /> Payout Schedule — {scheduleOwner.name}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 pt-2">
+              <p className="text-xs text-white/40">Choose how often this owner receives their share automatically.</p>
+              {(["immediate", "daily", "weekly", "manual"] as const).map(s => {
+                const info = SCHEDULE_LABELS[s];
+                const Icon = info.icon;
+                const descriptions: Record<string, string> = {
+                  immediate: "Paid instantly when each booking is confirmed",
+                  daily: "Batch paid every day at midnight automatically",
+                  weekly: "Paid manually on a weekly cycle",
+                  manual: "Admin manually triggers each payout",
+                };
+                return (
+                  <button key={s} onClick={() => setScheduleValue(s)}
+                    className={cn("w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all",
+                      scheduleValue === s ? "border-primary bg-primary/10" : "border-white/10 bg-white/[0.03] hover:border-white/20")}>
+                    <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0", info.color)}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-white">{info.label}</p>
+                      <p className="text-[10px] text-white/35">{descriptions[s]}</p>
+                    </div>
+                    {scheduleValue === s && <CheckCircle2 className="h-4 w-4 text-primary ml-auto" />}
+                  </button>
+                );
+              })}
+              {(scheduleValue === "immediate" || scheduleValue === "daily") && !scheduleOwner.bankDetails?.accountNumber && !scheduleOwner.bankDetails?.upiId && (
+                <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-400">
+                  <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                  Owner has no bank/UPI details — add them first for auto-payouts to work
+                </div>
+              )}
+              <Button
+                className="w-full h-10 bg-primary hover:bg-primary/90 font-bold"
+                disabled={scheduleMut.isPending}
+                onClick={() => scheduleMut.mutate({ id: scheduleOwner.id, schedule: scheduleValue })}
+              >
+                {scheduleMut.isPending ? "Saving..." : "Save Schedule"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* ─── Pay Dialog ─── */}
       {payoutOwner && (
         <Dialog open={!!payoutOwner} onOpenChange={() => { setPayoutOwner(null); setPayoutAmount(""); setPayoutNote(""); }}>
           <DialogContent className="sm:max-w-sm bg-[#161924] border-white/10 text-white">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-white">
-                <Wallet className="h-5 w-5 text-emerald-400" /> Record Payout
+                <Wallet className="h-5 w-5 text-emerald-400" />
+                {rzpStatus?.configured ? "Send Razorpay Payout" : "Record Payout"}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-2">
+              {/* Razorpay X status notice */}
+              {rzpStatus?.configured ? (
+                <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-xs text-emerald-400">
+                  <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0" />
+                  Razorpay X active — money will be transferred to owner's bank/UPI automatically
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-white/[0.05] border border-white/10 rounded-xl p-3 text-xs text-white/40">
+                  <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                  Razorpay X not configured — this will be recorded as a manual payout
+                </div>
+              )}
+
               {/* Owner summary */}
               <div className="bg-emerald-500/[0.08] border border-emerald-500/20 rounded-xl p-4 space-y-2 text-sm">
                 <p className="font-bold text-white">{payoutOwner.name}</p>
@@ -375,7 +552,7 @@ export default function AdminPayout() {
                 </div>
               </div>
 
-              {/* Bank info if available */}
+              {/* Bank info */}
               {payoutOwner.bankDetails && Object.values(payoutOwner.bankDetails).some(Boolean) && (
                 <div className="bg-white/[0.04] rounded-xl p-3 text-xs space-y-1">
                   <p className="text-[10px] font-bold text-white/25 uppercase mb-2">Paying To</p>
@@ -422,10 +599,10 @@ export default function AdminPayout() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="bank_transfer">Bank Transfer (NEFT/IMPS)</SelectItem>
-                    <SelectItem value="upi">UPI</SelectItem>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="cheque">Cheque</SelectItem>
+                    <SelectItem value="bank_transfer">Bank Transfer (NEFT/IMPS) {rzpStatus?.configured ? "· via Razorpay" : ""}</SelectItem>
+                    <SelectItem value="upi">UPI {rzpStatus?.configured ? "· via Razorpay" : ""}</SelectItem>
+                    <SelectItem value="cash">Cash (Manual)</SelectItem>
+                    <SelectItem value="cheque">Cheque (Manual)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -441,11 +618,17 @@ export default function AdminPayout() {
               </div>
 
               <Button
-                className="w-full h-11 font-bold bg-emerald-600 hover:bg-emerald-700"
+                className="w-full h-11 font-bold bg-emerald-600 hover:bg-emerald-700 gap-2"
                 disabled={payoutMut.isPending || !payoutAmount || Number(payoutAmount) <= 0}
                 onClick={() => payoutMut.mutate({ id: payoutOwner.id, amount: Number(payoutAmount), note: payoutNote, method: payoutMethod })}
               >
-                {payoutMut.isPending ? "Recording..." : `Confirm ${fmtINR(Number(payoutAmount || 0))} Payout`}
+                {rzpStatus?.configured && (payoutMethod === "bank_transfer" || payoutMethod === "upi")
+                  ? <ShieldCheck className="h-4 w-4" /> : <Wallet className="h-4 w-4" />}
+                {payoutMut.isPending
+                  ? "Processing..."
+                  : rzpStatus?.configured && (payoutMethod === "bank_transfer" || payoutMethod === "upi")
+                    ? `Send ₹${(Number(payoutAmount) || 0).toLocaleString("en-IN")} via Razorpay`
+                    : `Record ${fmtINR(Number(payoutAmount || 0))} Payout`}
               </Button>
             </div>
           </DialogContent>
@@ -466,15 +649,24 @@ export default function AdminPayout() {
                 <p className="text-center py-8 text-white/30 text-sm">No payouts recorded yet</p>
               ) : (
                 [...historyOwner.payoutHistory].reverse().map((p: any, i: number) => (
-                  <div key={i} className="bg-white/[0.04] rounded-xl p-3 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-black text-emerald-400">{fmtINR(p.amount)}</p>
-                      <p className="text-[11px] text-white/40 mt-0.5 capitalize">
-                        {p.method?.replace("_", " ")} · {p.date ? format(new Date(p.date), "dd MMM yyyy, hh:mm a") : "—"}
-                      </p>
-                      {p.note && <p className="text-[11px] text-white/30 italic mt-0.5">"{p.note}"</p>}
+                  <div key={i} className="bg-white/[0.04] rounded-xl p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-black text-emerald-400">{fmtINR(p.amount)}</p>
+                        <p className="text-[11px] text-white/40 mt-0.5 capitalize">
+                          {p.method?.replace("_", " ")} · {p.date ? format(new Date(p.date), "dd MMM yyyy, hh:mm a") : "—"}
+                        </p>
+                        {p.note && <p className="text-[11px] text-white/30 italic mt-0.5">"{p.note}"</p>}
+                      </div>
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400 flex-shrink-0" />
                     </div>
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+                    {p.razorpayPayoutId && (
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        <RazorpayBadge payoutId={p.razorpayPayoutId} status={p.razorpayStatus} />
+                        <span className="text-[9px] text-white/25 font-mono">{p.razorpayPayoutId}</span>
+                        {p.razorpayMode && <span className="text-[9px] text-white/25">{p.razorpayMode}</span>}
+                      </div>
+                    )}
                   </div>
                 ))
               )}
