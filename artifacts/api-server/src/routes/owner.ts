@@ -197,6 +197,46 @@ router.get("/owner/payout-status", authenticate, requireRole("turf_owner", "admi
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch payout status" }); }
 });
 
+// ── Bank Details ─────────────────────────────────────────────────────────────────
+
+router.put("/owner/bank-details", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const { bankName, accountName, accountNumber, ifscCode, upiId } = req.body;
+
+    // Basic validation
+    if (ifscCode && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode.toUpperCase())) {
+      res.status(400).json({ error: "Invalid IFSC code format (e.g. SBIN0001234)" }); return;
+    }
+    if (upiId && !/^[\w.\-+]+@[\w]+$/.test(upiId)) {
+      res.status(400).json({ error: "Invalid UPI ID format (e.g. name@upi)" }); return;
+    }
+    if (accountNumber && !/^\d{9,18}$/.test(accountNumber)) {
+      res.status(400).json({ error: "Account number must be 9–18 digits" }); return;
+    }
+
+    const updated = await User.findByIdAndUpdate(
+      req.user!.id,
+      {
+        bankDetails: {
+          bankName:      (bankName      || "").trim(),
+          accountName:   (accountName   || "").trim(),
+          accountNumber: (accountNumber || "").trim(),
+          ifscCode:      (ifscCode      || "").trim().toUpperCase(),
+          upiId:         (upiId         || "").trim(),
+        },
+      },
+      { new: true }
+    ).lean() as any;
+
+    if (!updated) { res.status(404).json({ error: "User not found" }); return; }
+
+    res.json({
+      success: true,
+      bankDetails: updated.bankDetails ?? {},
+    });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to update bank details" }); }
+});
+
 // ── Today's Live Snapshot ────────────────────────────────────────────────────────
 
 router.get("/owner/today", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
