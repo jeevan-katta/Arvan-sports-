@@ -7,20 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ImageUploadLight } from "@/components/ImageUpload";
 import {
   Plus, Trophy, Calendar, MapPin, Users, Trash2, Eye,
-  Wrench, Swords, Star, ChevronRight, Clock, X, RefreshCw,
-  Megaphone, Send,
+  Wrench, Star, RefreshCw, Megaphone, Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 
-type EventType = "event" | "tournament" | "maintenance";
+type OwnerEventType = "tournament" | "maintenance";
 
-const TYPE_LABELS: Record<EventType, { label: string; icon: any; color: string }> = {
-  event:       { label: "Event",       icon: Calendar,  color: "bg-blue-500/10 text-blue-500 border-blue-500/20" },
-  tournament:  { label: "Tournament",  icon: Trophy,    color: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
-  maintenance: { label: "Maintenance", icon: Wrench,    color: "bg-orange-500/10 text-orange-500 border-orange-500/20" },
+const TYPE_LABELS: Record<OwnerEventType, { label: string; icon: any; color: string }> = {
+  tournament:  { label: "Tournament",  icon: Trophy, color: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
+  maintenance: { label: "Maintenance", icon: Wrench,  color: "bg-orange-500/10 text-orange-500 border-orange-500/20" },
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -93,16 +92,17 @@ function ApplicationsDialog({ eventId, eventTitle, token, onClose }: { eventId: 
   );
 }
 
-// ── Create Event Form ──────────────────────────────────────────────────────────
-function CreateEventForm({ token, turfs, onSuccess, onClose }: {
+// ── Create Tournament Form ─────────────────────────────────────────────────────
+function CreateTournamentForm({ token, turfs, onSuccess, onClose }: {
   token: string; turfs: any[]; onSuccess: () => void; onClose: () => void;
 }) {
   const { toast } = useToast();
-  const [type, setType] = useState<EventType>("event");
+  const [type, setType] = useState<OwnerEventType>("tournament");
+  const [image, setImage] = useState("");
   const [form, setForm] = useState({
     title: "", description: "", date: "", time: "", venue: "", area: "",
     prize: "", entryFee: "", maxParticipants: "",
-    turfId: "", turfName: "", maintenanceStartTime: "", maintenanceEndTime: "",
+    turfId: "", maintenanceStartTime: "", maintenanceEndTime: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -119,7 +119,8 @@ function CreateEventForm({ token, turfs, onSuccess, onClose }: {
         area: form.area || turfObj?.area || undefined,
         type,
         turfId: form.turfId || undefined,
-        turfName: turfObj?.name || form.turfName || undefined,
+        turfName: turfObj?.name || undefined,
+        image: image || undefined,
       };
       if (type !== "maintenance") {
         payload.prize = form.prize || undefined;
@@ -139,7 +140,7 @@ function CreateEventForm({ token, turfs, onSuccess, onClose }: {
       return data;
     },
     onSuccess: () => {
-      toast({ title: type === "maintenance" ? "Maintenance block added!" : `${TYPE_LABELS[type].label} created!` });
+      toast({ title: type === "maintenance" ? "Maintenance block added!" : "Tournament created!" });
       onSuccess();
     },
     onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.message }),
@@ -155,21 +156,19 @@ function CreateEventForm({ token, turfs, onSuccess, onClose }: {
     return !Object.keys(errs).length;
   };
 
-  const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (validate()) mutate(); };
-
   const isMaint = type === "maintenance";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 pt-1">
+    <div className="space-y-4 pt-1">
       {/* Type selector */}
       <div>
         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Type</p>
-        <div className="grid grid-cols-3 gap-2">
-          {(["event","tournament","maintenance"] as EventType[]).map(t => {
+        <div className="grid grid-cols-2 gap-2">
+          {(["tournament","maintenance"] as OwnerEventType[]).map(t => {
             const { label, icon: Icon, color } = TYPE_LABELS[t];
             return (
               <button type="button" key={t} onClick={() => setType(t)}
-                className={cn("flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 text-xs font-bold transition-all",
+                className={cn("flex items-center justify-center gap-2 p-3 rounded-xl border-2 text-sm font-bold transition-all",
                   type === t ? `${color} border-current` : "border-border text-muted-foreground hover:border-primary/50")}>
                 <Icon className="h-4 w-4" /> {label}
               </button>
@@ -178,12 +177,22 @@ function CreateEventForm({ token, turfs, onSuccess, onClose }: {
         </div>
       </div>
 
+      {/* Cover photo (tournament only) */}
+      {!isMaint && (
+        <div>
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Cover Photo</p>
+          <ImageUploadLight value={image} onChange={setImage} token={token} label="Upload Tournament Photo" />
+        </div>
+      )}
+
       {/* Title */}
       <div>
         <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-          {isMaint ? "Reason" : "Title"} <span className="text-destructive">*</span>
+          {isMaint ? "Reason" : "Tournament Name"} <span className="text-destructive">*</span>
         </label>
-        <Input value={form.title} onChange={set("title")} placeholder={isMaint ? "e.g. Turf resurfacing" : "e.g. Summer Box Cricket Championship"} className={cn("h-11", errors.title && "border-destructive")} />
+        <Input value={form.title} onChange={set("title")}
+          placeholder={isMaint ? "e.g. Turf resurfacing" : "e.g. Summer Box Cricket Championship"}
+          className={cn("h-11", errors.title && "border-destructive")} />
         {errors.title && <p className="text-xs text-destructive mt-1">{errors.title}</p>}
       </div>
 
@@ -201,11 +210,12 @@ function CreateEventForm({ token, turfs, onSuccess, onClose }: {
           </div>
         ) : (
           <div>
-            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Time</label>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Start Time</label>
             <Input type="time" value={form.time} onChange={set("time")} className="h-11" />
           </div>
         )}
       </div>
+
       {isMaint && (
         <div>
           <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">End Time <span className="text-destructive">*</span></label>
@@ -216,7 +226,7 @@ function CreateEventForm({ token, turfs, onSuccess, onClose }: {
       {/* Turf selector */}
       {turfs.length > 0 && (
         <div>
-          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Link to Turf (optional)</label>
+          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Link to Your Turf (optional)</label>
           <select value={form.turfId} onChange={e => setForm(f => ({ ...f, turfId: e.target.value }))}
             className="w-full h-11 text-sm bg-background border border-input rounded-xl px-3 font-medium focus:outline-none focus:ring-2 focus:ring-primary">
             <option value="">— None —</option>
@@ -227,7 +237,6 @@ function CreateEventForm({ token, turfs, onSuccess, onClose }: {
 
       {!isMaint && (
         <>
-          {/* Venue + Area */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Venue</label>
@@ -238,10 +247,9 @@ function CreateEventForm({ token, turfs, onSuccess, onClose }: {
               <Input value={form.area} onChange={set("area")} placeholder="e.g. Gachibowli" className="h-11" />
             </div>
           </div>
-          {/* Prize + Fee + Max */}
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Prize</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Prize Pool</label>
               <Input value={form.prize} onChange={set("prize")} placeholder="₹50,000" className="h-11" />
             </div>
             <div>
@@ -253,22 +261,23 @@ function CreateEventForm({ token, turfs, onSuccess, onClose }: {
               <Input type="number" value={form.maxParticipants} onChange={set("maxParticipants")} placeholder="16" className="h-11" />
             </div>
           </div>
-          {/* Description */}
           <div>
-            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Description (optional)</label>
-            <Textarea value={form.description} onChange={set("description")} placeholder="Rules, format, contact info..." className="resize-none text-sm" rows={3} />
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Description</label>
+            <Textarea value={form.description} onChange={set("description")}
+              placeholder="Rules, format, schedule, contact info…"
+              className="resize-none text-sm" rows={3} />
           </div>
         </>
       )}
 
       <div className="flex gap-2 pt-1">
         <Button type="button" variant="outline" className="flex-1 h-11" onClick={onClose} disabled={isPending}>Cancel</Button>
-        <Button type="submit" className="flex-1 h-11 font-bold gap-2" disabled={isPending}>
+        <Button className="flex-1 h-11 font-bold gap-2" disabled={isPending} onClick={() => { if (validate()) mutate(); }}>
           {isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-          {isPending ? "Creating…" : "Create"}
+          {isPending ? "Creating…" : isMaint ? "Add Block" : "Create Tournament"}
         </Button>
       </div>
-    </form>
+    </div>
   );
 }
 
@@ -312,7 +321,6 @@ function AnnouncementDialog({ token, turfs, onClose }: { token: string; turfs: a
             <select value={form.type} onChange={set("type")}
               className="w-full h-11 text-sm bg-background border border-input rounded-xl px-3 font-medium focus:outline-none focus:ring-2 focus:ring-primary">
               <option value="general">General</option>
-              <option value="event">Event</option>
               <option value="tournament">Tournament</option>
               <option value="maintenance">Maintenance</option>
             </select>
@@ -356,7 +364,7 @@ export default function OwnerEvents() {
   const [showCreate, setShowCreate] = useState(false);
   const [showAnnounce, setShowAnnounce] = useState(false);
   const [viewApplications, setViewApplications] = useState<{ id: string; title: string } | null>(null);
-  const [tab, setTab] = useState<"all" | EventType>("all");
+  const [tab, setTab] = useState<"all" | OwnerEventType>("all");
 
   const { data: turfs = [] } = useQuery<any[]>({
     queryKey: ["owner-turfs-list"],
@@ -380,13 +388,13 @@ export default function OwnerEvents() {
     onError: () => toast({ variant: "destructive", title: "Failed to delete" }),
   });
 
-  const filtered = tab === "all" ? events : events.filter(e => e.type === tab);
+  const displayEvents = events.filter(e => e.type !== "event");
+  const filtered = tab === "all" ? displayEvents : displayEvents.filter(e => e.type === tab);
 
   const counts = {
-    all: events.length,
-    event: events.filter(e => e.type === "event").length,
-    tournament: events.filter(e => e.type === "tournament").length,
-    maintenance: events.filter(e => e.type === "maintenance").length,
+    all: displayEvents.length,
+    tournament: displayEvents.filter(e => e.type === "tournament").length,
+    maintenance: displayEvents.filter(e => e.type === "maintenance").length,
   };
 
   return (
@@ -395,9 +403,9 @@ export default function OwnerEvents() {
       <div className="pt-2 flex items-start justify-between">
         <div>
           <h2 className="text-xl font-display font-bold flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-primary" /> My Events
+            <Trophy className="h-5 w-5 text-primary" /> My Tournaments
           </h2>
-          <p className="text-muted-foreground text-sm mt-0.5">{events.length} events created by you</p>
+          <p className="text-muted-foreground text-sm mt-0.5">{displayEvents.length} created by you</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs font-bold" onClick={() => setShowAnnounce(true)}>
@@ -411,7 +419,7 @@ export default function OwnerEvents() {
 
       {/* Tab filter */}
       <div className="flex gap-1.5 overflow-x-auto hide-scrollbar">
-        {(["all","event","tournament","maintenance"] as const).map(t => (
+        {(["all","tournament","maintenance"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={cn(
               "whitespace-nowrap flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border",
@@ -431,23 +439,30 @@ export default function OwnerEvents() {
       ) : !filtered.length ? (
         <Card className="p-8 border-none shadow-sm text-center">
           <Trophy className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-20" />
-          <p className="font-bold text-muted-foreground">No {tab === "all" ? "events" : TYPE_LABELS[tab].label.toLowerCase() + "s"} yet</p>
-          <p className="text-xs text-muted-foreground mt-1 mb-4">Create your first {tab === "all" ? "event or tournament" : TYPE_LABELS[tab as EventType].label.toLowerCase()} to get started</p>
+          <p className="font-bold text-muted-foreground">No {tab === "all" ? "tournaments" : TYPE_LABELS[tab as OwnerEventType].label.toLowerCase() + "s"} yet</p>
+          <p className="text-xs text-muted-foreground mt-1 mb-4">Create your first tournament to get started</p>
           <Button size="sm" className="gap-2 font-bold" onClick={() => setShowCreate(true)}>
-            <Plus className="h-3.5 w-3.5" /> Create
+            <Plus className="h-3.5 w-3.5" /> Create Tournament
           </Button>
         </Card>
       ) : (
         <div className="space-y-3">
           {filtered.map(ev => {
-            const typeInfo = TYPE_LABELS[ev.type as EventType] ?? TYPE_LABELS.event;
+            const typeInfo = TYPE_LABELS[ev.type as OwnerEventType] ?? TYPE_LABELS.tournament;
             const TypeIcon = typeInfo.icon;
             const pct = ev.maxParticipants ? Math.min(100, Math.round((ev.currentParticipants / ev.maxParticipants) * 100)) : 0;
             const isMaint = ev.type === "maintenance";
             return (
               <Card key={ev.id} className="border-none shadow-sm overflow-hidden">
+                {/* Cover image (tournament only) */}
+                {!isMaint && ev.image && (
+                  <div className="h-32 w-full relative overflow-hidden">
+                    <img src={ev.image} alt={ev.title} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
+                  </div>
+                )}
                 {/* Type stripe */}
-                <div className={cn("h-1", ev.type === "tournament" ? "bg-amber-500" : ev.type === "maintenance" ? "bg-orange-500" : "bg-primary")} />
+                <div className={cn("h-1", ev.type === "tournament" ? "bg-amber-500" : "bg-orange-500")} />
                 <div className="p-4">
                   {/* Header row */}
                   <div className="flex items-start justify-between gap-2 mb-3">
@@ -484,15 +499,9 @@ export default function OwnerEvents() {
                         <span className="truncate">{[ev.venue, ev.area].filter(Boolean).join(", ")}</span>
                       </div>
                     )}
-                    {ev.turfName && (
-                      <div className="flex items-center gap-1.5">
-                        <Swords className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                        <span>{ev.turfName}</span>
-                      </div>
-                    )}
                   </div>
 
-                  {/* Stats bar (non-maintenance) */}
+                  {/* Stats bar */}
                   {!isMaint && ev.maxParticipants > 0 && (
                     <div className="mb-3">
                       <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
@@ -510,7 +519,7 @@ export default function OwnerEvents() {
                     <div className="flex gap-2 mb-3">
                       {ev.prize && (
                         <div className="bg-amber-500/10 rounded-xl px-3 py-1.5 text-center flex-1">
-                          <p className="text-[9px] text-amber-500/70 font-black uppercase">Prize</p>
+                          <p className="text-[9px] text-amber-500/70 font-black uppercase">Prize Pool</p>
                           <p className="text-xs font-black text-amber-500">{ev.prize}</p>
                         </div>
                       )}
@@ -537,7 +546,7 @@ export default function OwnerEvents() {
                       </button>
                     )}
                     <button
-                      onClick={() => { if (confirm("Delete this event?")) deleteMutation.mutate(ev.id); }}
+                      onClick={() => { if (confirm("Delete this tournament?")) deleteMutation.mutate(ev.id); }}
                       disabled={deleteMutation.isPending}
                       className="flex items-center gap-1.5 text-xs font-bold text-destructive hover:bg-destructive/5 px-3 py-2 rounded-xl transition-colors border border-destructive/20"
                     >
@@ -556,10 +565,15 @@ export default function OwnerEvents() {
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Plus className="h-4 w-4 text-primary" /> Create Event / Tournament
+              <Trophy className="h-4 w-4 text-primary" /> Create Tournament
             </DialogTitle>
           </DialogHeader>
-          <CreateEventForm token={token!} turfs={turfs} onSuccess={() => { setShowCreate(false); qc.invalidateQueries({ queryKey: ["owner-events"] }); }} onClose={() => setShowCreate(false)} />
+          <CreateTournamentForm
+            token={token!}
+            turfs={turfs}
+            onSuccess={() => { setShowCreate(false); qc.invalidateQueries({ queryKey: ["owner-events"] }); }}
+            onClose={() => setShowCreate(false)}
+          />
         </DialogContent>
       </Dialog>
 

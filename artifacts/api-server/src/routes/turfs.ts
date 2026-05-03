@@ -51,8 +51,9 @@ async function ensureDailySlots(turfId: string) {
 
 router.get("/turfs", async (req: Request, res: Response) => {
   try {
-    const { lat, lng, minPrice, maxPrice, minRating, search } = req.query as Record<string, string>;
+    const { lat, lng, minPrice, maxPrice, minRating, search, featured } = req.query as Record<string, string>;
     const query: any = { status: "approved" };
+    if (featured === "true") query.featured = true;
     if (search) query.$or = [{ name: new RegExp(search, "i") }, { area: new RegExp(search, "i") }];
     if (minPrice || maxPrice) { query.pricePerHour = {}; if (minPrice) query.pricePerHour.$gte = parseFloat(minPrice); if (maxPrice) query.pricePerHour.$lte = parseFloat(maxPrice); }
     if (minRating) query.rating = { $gte: parseFloat(minRating) };

@@ -2,7 +2,7 @@ import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, MapPin, Star, ArrowRight, Users, Trophy, ShoppingBag, Navigation, Loader2, AlertCircle } from "lucide-react";
+import { Search, MapPin, Star, ArrowRight, Users, Trophy, ShoppingBag, Navigation, Loader2, AlertCircle, Sparkles, Calendar, IndianRupee } from "lucide-react";
 import { useListTurfs, useListEvents } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { useGeolocation } from "@/hooks/use-geolocation";
@@ -22,7 +22,12 @@ export default function Home() {
     { query: { enabled: !(lat && lng) } }
   );
 
-  const { data: events } = useListEvents({ featured: true });
+  const { data: featuredTurfs } = useListTurfs(
+    { featured: "true" } as any,
+    { query: { enabled: true } }
+  );
+
+  const { data: featuredEvents } = useListEvents({ featured: true });
 
   const features = [
     { name: "Book Venue", icon: MapPin, color: "bg-blue-500", href: "/turfs" },
@@ -33,6 +38,8 @@ export default function Home() {
 
   const displayTurfs = nearbyTurfs ?? topTurfs;
   const isLoadingTurfs = lat && lng ? loadingNearby : loadingTop;
+  const hasFeaturedTurfs = featuredTurfs && featuredTurfs.length > 0;
+  const hasFeaturedEvents = featuredEvents && featuredEvents.length > 0;
 
   return (
     <div className="flex flex-col min-h-full">
@@ -73,7 +80,62 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Nearby Turfs Section */}
+        {/* ── Featured Turfs ── */}
+        {hasFeaturedTurfs && (
+          <div className="py-4 bg-gradient-to-b from-primary/5 to-transparent">
+            <div className="px-4 flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary fill-primary/30" />
+                <h3 className="font-bold text-lg">Featured Venues</h3>
+                <span className="text-[10px] font-black bg-primary text-primary-foreground px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  Admin Pick
+                </span>
+              </div>
+              <Link href="/turfs" className="text-sm text-primary font-semibold flex items-center">
+                See All <ArrowRight className="h-3 w-3 ml-1" />
+              </Link>
+            </div>
+            <div className="flex overflow-x-auto gap-4 px-4 pb-2 snap-x hide-scrollbar">
+              {featuredTurfs.map(turf => (
+                <Link key={turf.id} href={`/turfs/${turf.id}`} className="min-w-[240px] snap-center">
+                  <Card className="border border-primary/20 shadow-sm shadow-primary/10 overflow-hidden h-full">
+                    <div className="relative h-32 bg-muted">
+                      {turf.images?.[0] ? (
+                        <img src={turf.images[0]} alt={turf.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-primary/5">
+                          <MapPin className="h-8 w-8 text-primary/20" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                      <div className="absolute top-2 left-2 flex items-center gap-1 bg-primary text-primary-foreground px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider">
+                        <Sparkles className="h-2.5 w-2.5" /> Featured
+                      </div>
+                      {turf.rating && (
+                        <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded-md text-xs font-bold flex items-center gap-0.5 text-white">
+                          <Star className="h-2.5 w-2.5 text-yellow-400 fill-yellow-400" />
+                          {turf.rating}
+                        </div>
+                      )}
+                    </div>
+                    <CardContent className="p-3">
+                      <h4 className="font-bold text-sm truncate">{turf.name}</h4>
+                      <p className="text-xs text-muted-foreground flex items-center mt-0.5 truncate">
+                        <MapPin className="h-3 w-3 mr-1 shrink-0" />{turf.area}
+                      </p>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="font-bold text-primary text-sm">₹{turf.pricePerHour}<span className="text-[10px] text-muted-foreground font-normal">/hr</span></span>
+                        <Button size="sm" className="h-6 text-[10px] rounded-full px-3">Book</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Nearby / Top-rated Turfs ── */}
         <div className="py-4">
           <div className="px-4 flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -175,48 +237,104 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Featured Events */}
-        <div className="py-4 bg-muted/30">
-          <div className="px-4 flex items-center justify-between mb-4">
-            <h3 className="font-bold text-lg">Upcoming Tournaments</h3>
-            <Link href="/events" className="text-sm text-primary font-semibold flex items-center">
-              See All <ArrowRight className="h-3 w-3 ml-1" />
-            </Link>
-          </div>
-          <div className="px-4 space-y-3">
-            {!events ? (
-              <div className="h-24 rounded-xl bg-muted animate-pulse" />
-            ) : events?.slice(0, 2).map(event => (
-              <Link key={event.id} href={`/events/${event.id}`} className="block">
-                <Card className="border-none shadow-sm overflow-hidden bg-gradient-to-r from-secondary to-secondary/90 text-secondary-foreground">
-                  <div className="flex p-3">
-                    <div className="h-20 w-20 rounded-lg bg-black/20 flex-shrink-0 flex flex-col items-center justify-center">
-                      <span className="text-xs uppercase font-bold text-primary">{new Date(event.date).toLocaleString('default', { month: 'short' })}</span>
-                      <span className="text-2xl font-display font-bold leading-none">{new Date(event.date).getDate()}</span>
-                    </div>
-                    <div className="ml-3 flex-1 overflow-hidden">
-                      <h4 className="font-bold truncate">{event.title}</h4>
-                      <p className="text-xs text-secondary-foreground/70 flex items-center mt-1 truncate">
-                        <MapPin className="h-3 w-3 mr-1" /> {event.venue}
-                      </p>
-                      <div className="flex items-center justify-between mt-2">
-                        <div className="flex -space-x-2">
-                          {[1, 2, 3].map(i => (
-                            <div key={i} className="w-6 h-6 rounded-full bg-muted border-2 border-secondary flex items-center justify-center text-[8px] text-muted-foreground font-bold">{i}</div>
-                          ))}
-                          <div className="w-6 h-6 rounded-full bg-primary border-2 border-secondary flex items-center justify-center text-[8px] text-primary-foreground font-bold">
-                            +{event.currentParticipants}
+        {/* ── Featured Tournaments & Events ── */}
+        {hasFeaturedEvents && (
+          <div className="py-4 bg-muted/30">
+            <div className="px-4 flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-primary" />
+                <h3 className="font-bold text-lg">Featured Tournaments</h3>
+              </div>
+              <Link href="/events" className="text-sm text-primary font-semibold flex items-center">
+                See All <ArrowRight className="h-3 w-3 ml-1" />
+              </Link>
+            </div>
+            <div className="px-4 space-y-3">
+              {featuredEvents.slice(0, 3).map(event => (
+                <Link key={event.id} href={`/events/${event.id}`} className="block">
+                  <Card className="border-none shadow-sm overflow-hidden">
+                    {/* Cover photo if available */}
+                    {event.image && (
+                      <div className="relative h-36 overflow-hidden">
+                        <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                        <div className="absolute bottom-3 left-3 right-3">
+                          <p className="text-white font-bold text-sm leading-tight">{event.title}</p>
+                          {event.prize && (
+                            <p className="text-primary text-xs font-black mt-0.5">Win {event.prize}</p>
+                          )}
+                        </div>
+                        <div className="absolute top-3 right-3 bg-primary/90 text-primary-foreground text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                          <Sparkles className="h-2.5 w-2.5" /> Featured
+                        </div>
+                      </div>
+                    )}
+                    <div className={event.image ? "p-3 bg-gradient-to-r from-secondary to-secondary/90 text-secondary-foreground" : "bg-gradient-to-r from-secondary to-secondary/90 text-secondary-foreground"}>
+                      <div className={event.image ? "flex items-center gap-3" : "flex p-3"}>
+                        {!event.image && (
+                          <div className="h-20 w-20 rounded-lg bg-black/20 flex-shrink-0 flex flex-col items-center justify-center">
+                            <span className="text-xs uppercase font-bold text-primary">{new Date(event.date).toLocaleString('default', { month: 'short' })}</span>
+                            <span className="text-2xl font-display font-bold leading-none">{new Date(event.date).getDate()}</span>
+                          </div>
+                        )}
+                        <div className={event.image ? "flex-1 flex items-center justify-between gap-2" : "ml-3 flex-1 overflow-hidden"}>
+                          {!event.image && (
+                            <div>
+                              <h4 className="font-bold truncate">{event.title}</h4>
+                              <p className="text-xs text-secondary-foreground/70 flex items-center mt-1 truncate">
+                                <MapPin className="h-3 w-3 mr-1" /> {event.venue}
+                              </p>
+                              {event.prize && (
+                                <p className="text-xs font-bold text-primary mt-1">Win {event.prize}</p>
+                              )}
+                            </div>
+                          )}
+                          <div className={event.image ? "flex items-center gap-3 w-full" : "flex items-center justify-between mt-2"}>
+                            <div className="flex items-center gap-1 text-xs text-secondary-foreground/60">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(event.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                              {event.venue && <><span className="mx-1">·</span><MapPin className="h-3 w-3" /><span className="truncate max-w-[80px]">{event.venue}</span></>}
+                            </div>
+                            {event.entryFee > 0 && (
+                              <span className="text-xs font-bold text-primary flex items-center gap-0.5">
+                                <IndianRupee className="h-3 w-3" />{event.entryFee} entry
+                              </span>
+                            )}
+                            <span className="text-xs font-bold bg-primary/20 text-primary px-2 py-0.5 rounded-full ml-auto">
+                              {event.currentParticipants} joined
+                            </span>
                           </div>
                         </div>
-                        <span className="text-xs font-bold text-primary">Win {event.prize}</span>
                       </div>
                     </div>
-                  </div>
-                </Card>
-              </Link>
-            ))}
+                  </Card>
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Fallback: show upcoming events even if none are featured */}
+        {!hasFeaturedEvents && (
+          <div className="py-4 bg-muted/30">
+            <div className="px-4 flex items-center justify-between mb-4">
+              <h3 className="font-bold text-lg">Upcoming Tournaments</h3>
+              <Link href="/events" className="text-sm text-primary font-semibold flex items-center">
+                See All <ArrowRight className="h-3 w-3 ml-1" />
+              </Link>
+            </div>
+            <div className="px-4">
+              <div className="rounded-2xl bg-gradient-to-r from-secondary to-secondary/80 p-5 text-center">
+                <Trophy className="h-10 w-10 mx-auto text-primary mb-2" />
+                <p className="font-bold text-sm">No featured tournaments yet</p>
+                <p className="text-xs text-muted-foreground mt-1">Check back soon for upcoming events</p>
+                <Link href="/events">
+                  <Button size="sm" className="mt-3 gap-1.5 text-xs"><ArrowRight className="h-3 w-3" /> Browse All Events</Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

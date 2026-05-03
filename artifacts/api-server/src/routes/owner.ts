@@ -378,7 +378,7 @@ router.get("/owner/events", authenticate, requireRole("turf_owner", "admin"), as
 
 router.post("/owner/events", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
   try {
-    const { title, description, date, time, venue, area, prize, entryFee, maxParticipants, type, turfId, turfName, maintenanceStartTime, maintenanceEndTime } = req.body;
+    const { title, description, date, time, venue, area, prize, entryFee, maxParticipants, type, turfId, turfName, maintenanceStartTime, maintenanceEndTime, image } = req.body;
     if (!title?.trim() || !date) { res.status(400).json({ error: "title and date required" }); return; }
 
     // If turfId provided, verify ownership
@@ -391,7 +391,8 @@ router.post("/owner/events", authenticate, requireRole("turf_owner", "admin"), a
     const event = await Event.create({
       title: title.trim(), description, date, time, venue, area, prize,
       entryFee: entryFee || 0, maxParticipants,
-      type: type || "event",
+      type: type || "tournament",
+      image: image || undefined,
       turfId: turfId && Types.ObjectId.isValid(turfId) ? turfId : undefined,
       turfName,
       maintenanceStartTime, maintenanceEndTime,
@@ -404,6 +405,9 @@ router.post("/owner/events", authenticate, requireRole("turf_owner", "admin"), a
 
     res.status(201).json({
       id: event._id.toString(), title: event.title, date: event.date, type: event.type,
+      image: event.image, prize: event.prize, entryFee: event.entryFee,
+      maxParticipants: event.maxParticipants, featured: event.featured,
+      status: event.status, venue: event.venue, area: event.area,
       turfId: event.turfId?.toString(), turfName: event.turfName,
       createdAt: event.createdAt?.toISOString(),
     });
@@ -415,7 +419,7 @@ router.put("/owner/events/:id", authenticate, requireRole("turf_owner", "admin")
     if (!Types.ObjectId.isValid(req.params.id)) { res.status(404).json({ error: "Not found" }); return; }
     const existing = await Event.findOne({ _id: req.params.id, createdBy: req.user!.id }).lean();
     if (!existing && req.user!.role !== "admin") { res.status(403).json({ error: "Not your event" }); return; }
-    const allowed = ["title","description","date","time","venue","area","prize","entryFee","maxParticipants","status","type","maintenanceStartTime","maintenanceEndTime","turfName"];
+    const allowed = ["title","description","date","time","venue","area","prize","entryFee","maxParticipants","status","type","maintenanceStartTime","maintenanceEndTime","turfName","image"];
     const update: any = {};
     for (const k of allowed) if (req.body[k] !== undefined) update[k] = req.body[k];
     const updated = await Event.findByIdAndUpdate(req.params.id, update, { new: true }).lean() as any;

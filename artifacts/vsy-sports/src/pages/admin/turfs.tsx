@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Building2, CheckCircle2, Clock, XCircle, MapPin, IndianRupee,
   Star, Phone, Mail, Briefcase, Filter, RefreshCw, AlertCircle,
-  ChevronDown, ChevronUp, MessageSquare, Search,
+  ChevronDown, ChevronUp, MessageSquare, Search, Sparkles,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -67,6 +67,16 @@ export default function AdminTurfs() {
     queryFn: () => apiFetch("/api/admin/turfs", token),
     enabled: !!token,
     refetchInterval: 60_000,
+  });
+
+  const featureMutation = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/admin/turfs/${id}/feature`, token, "PUT"),
+    onSuccess: (res) => {
+      if (res.error) { toast({ variant: "destructive", title: res.error }); return; }
+      qc.invalidateQueries({ queryKey: ["admin-turfs"] });
+      toast({ title: res.featured ? "Turf featured on homepage!" : "Turf removed from featured" });
+    },
+    onError: () => toast({ variant: "destructive", title: "Failed to update featured status" }),
   });
 
   const statusMutation = useMutation({
@@ -322,14 +332,29 @@ export default function AdminTurfs() {
 
                   {/* Non-pending controls */}
                   {!isPending && (
-                    <div className="flex gap-2 mt-3">
+                    <div className="flex gap-2 mt-3 flex-wrap">
                       <button
                         onClick={() => setExpandedId(isExpanded ? null : turf.id)}
                         className="flex-1 flex items-center justify-center gap-1 text-xs text-white/30 hover:text-white py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.07] transition-colors"
                       >
                         {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                        {isExpanded ? "Collapse" : "View Details"}
+                        {isExpanded ? "Collapse" : "Details"}
                       </button>
+                      {turf.status === "approved" && (
+                        <button
+                          onClick={() => featureMutation.mutate(turf.id)}
+                          disabled={featureMutation.isPending}
+                          className={cn(
+                            "flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all",
+                            turf.featured
+                              ? "bg-primary/20 border-primary/40 text-primary hover:bg-primary/30"
+                              : "bg-white/[0.04] border-white/10 text-white/30 hover:border-primary/40 hover:text-primary"
+                          )}
+                        >
+                          <Sparkles className={cn("h-3 w-3", turf.featured && "fill-current")} />
+                          {turf.featured ? "Unfeature" : "Feature"}
+                        </button>
+                      )}
                       {turf.status === "approved" && (
                         <Button
                           size="sm"

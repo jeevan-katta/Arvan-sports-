@@ -260,14 +260,6 @@ router.put("/admin/turfs/:id/approve", authenticate, requireRole("admin"), async
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to approve turf" }); }
 });
 
-router.put("/admin/turfs/:id/feature", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
-  try {
-    const turf = await Turf.findByIdAndUpdate(req.params.id, { featured: req.body.featured }, { new: true }).lean();
-    if (!turf) { res.status(404).json({ error: "Turf not found" }); return; }
-    res.json(turfRes(turf));
-  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to feature turf" }); }
-});
-
 router.delete("/admin/turfs/:id", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
   try {
     await Turf.findByIdAndDelete(req.params.id);
