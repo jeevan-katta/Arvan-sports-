@@ -26,9 +26,10 @@ export default function OwnerPayout() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // Filters
-  const [selectedMonth, setSelectedMonth] = useState<string>("");
-  const [selectedYear, setSelectedYear]   = useState<string>("");
+  // Filters — default to current month + year
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState<string>(String(now.getMonth() + 1));
+  const [selectedYear, setSelectedYear]   = useState<string>(String(now.getFullYear()));
   const [selectedTurf, setSelectedTurf]   = useState<string>("");
 
   const hasFilter = !!(selectedMonth || selectedYear || selectedTurf);
