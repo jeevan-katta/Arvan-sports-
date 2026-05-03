@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ImageUploadLight } from "@/components/ImageUpload";
 import {
   Plus, Trophy, Calendar, MapPin, Users, Trash2, Eye,
-  Wrench, Star, RefreshCw, Megaphone, Send,
+  Wrench, Star, RefreshCw, Megaphone, Send, BarChart2, Pencil, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -31,6 +31,182 @@ const STATUS_COLORS: Record<string, string> = {
 
 function fmtDate(d: string) {
   try { return format(parseISO(d), "dd MMM yyyy"); } catch { return d; }
+}
+
+// ── Standings Dialog ───────────────────────────────────────────────────────────
+const EMPTY_ROW = { teamName: "", position: "", played: "", won: "", lost: "", drawn: "", points: "", goalsFor: "", goalsAgainst: "" };
+
+function StandingsDialog({ eventId, eventTitle, token, onClose }: { eventId: string; eventTitle: string; token: string; onClose: () => void }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [form, setForm] = useState({ ...EMPTY_ROW });
+  const [editId, setEditId] = useState<string | null>(null);
+
+  const { data: standings = [], isLoading } = useQuery<any[]>({
+    queryKey: ["owner-standings", eventId],
+    queryFn: () => fetch(`/api/owner/events/${eventId}/standings`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+    enabled: !!eventId,
+  });
+
+  const setField = (k: keyof typeof EMPTY_ROW) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const reset = () => { setForm({ ...EMPTY_ROW }); setEditId(null); };
+
+  const startEdit = (s: any) => {
+    setForm({
+      teamName: s.teamName, position: String(s.position),
+      played: String(s.played), won: String(s.won), lost: String(s.lost),
+      drawn: String(s.drawn), points: String(s.points),
+      goalsFor: String(s.goalsFor), goalsAgainst: String(s.goalsAgainst),
+    });
+    setEditId(s.id);
+  };
+
+  const { mutate: save, isPending: saving } = useMutation({
+    mutationFn: async () => {
+      const r = await fetch(`/api/owner/events/${eventId}/standings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          teamName: form.teamName.trim(),
+          position: Number(form.position) || 0,
+          played: Number(form.played) || 0,
+          won: Number(form.won) || 0,
+          lost: Number(form.lost) || 0,
+          drawn: Number(form.drawn) || 0,
+          points: Number(form.points) || 0,
+          goalsFor: Number(form.goalsFor) || 0,
+          goalsAgainst: Number(form.goalsAgainst) || 0,
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Failed");
+      return data;
+    },
+    onSuccess: () => {
+      toast({ title: "Standing saved" });
+      qc.invalidateQueries({ queryKey: ["owner-standings", eventId] });
+      reset();
+    },
+    onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.message }),
+  });
+
+  const { mutate: remove } = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetch(`/api/owner/events/${eventId}/standings/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      if (!r.ok) throw new Error("Failed");
+    },
+    onSuccess: () => { toast({ title: "Removed" }); qc.invalidateQueries({ queryKey: ["owner-standings", eventId] }); },
+    onError: () => toast({ variant: "destructive", title: "Failed to remove" }),
+  });
+
+  const NUM_FIELDS: { key: keyof typeof EMPTY_ROW; label: string }[] = [
+    { key: "played", label: "P" }, { key: "won", label: "W" }, { key: "lost", label: "L" },
+    { key: "drawn", label: "D" }, { key: "points", label: "Pts" },
+    { key: "goalsFor", label: "GF" }, { key: "goalsAgainst", label: "GA" },
+  ];
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <BarChart2 className="h-4 w-4 text-primary" /> Standings — {eventTitle}
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* Add / Edit form */}
+        <div className="bg-muted/40 rounded-xl p-3 space-y-3 border border-border">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+            {editId ? "Edit Row" : "Add Team"}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Team Name *</label>
+              <Input value={form.teamName} onChange={setField("teamName")} placeholder="e.g. Thunder Strikers" className="h-9 text-sm" />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Position *</label>
+              <Input value={form.position} onChange={setField("position")} placeholder="1" type="number" className="h-9 text-sm" />
+            </div>
+          </div>
+          <div className="grid grid-cols-7 gap-1.5">
+            {NUM_FIELDS.map(f => (
+              <div key={f.key}>
+                <label className="text-[10px] font-bold text-muted-foreground text-center block mb-1">{f.label}</label>
+                <Input value={form[f.key]} onChange={setField(f.key)} placeholder="0" type="number" className="h-9 text-xs px-2 text-center" />
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            {editId && <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={reset}><X className="h-3.5 w-3.5" /> Cancel</Button>}
+            <Button size="sm" className="h-9 flex-1 font-bold gap-1.5" disabled={saving || !form.teamName.trim() || !form.position} onClick={() => save()}>
+              {saving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+              {saving ? "Saving…" : editId ? "Update" : "Add Team"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Standings table */}
+        {isLoading ? (
+          <div className="space-y-2">{[...Array(3)].map((_, i) => <div key={i} className="h-12 rounded-xl bg-muted animate-pulse" />)}</div>
+        ) : standings.length === 0 ? (
+          <div className="text-center py-8">
+            <BarChart2 className="h-10 w-10 mx-auto text-muted-foreground opacity-20 mb-3" />
+            <p className="font-bold text-muted-foreground text-sm">No standings yet</p>
+            <p className="text-xs text-muted-foreground mt-1">Add teams above to build the leaderboard</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left p-2 text-muted-foreground font-bold">#</th>
+                  <th className="text-left p-2 text-muted-foreground font-bold">Team</th>
+                  <th className="p-2 text-center text-muted-foreground font-bold">P</th>
+                  <th className="p-2 text-center text-muted-foreground font-bold">W</th>
+                  <th className="p-2 text-center text-muted-foreground font-bold">L</th>
+                  <th className="p-2 text-center text-muted-foreground font-bold">D</th>
+                  <th className="p-2 text-center text-muted-foreground font-bold">GF</th>
+                  <th className="p-2 text-center text-muted-foreground font-bold">GA</th>
+                  <th className="p-2 text-center font-bold text-primary">Pts</th>
+                  <th className="p-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {standings.map((s: any) => (
+                  <tr key={s.id} className={cn("border-b border-border/40 last:border-0", editId === s.id ? "bg-primary/5" : "hover:bg-muted/30")}>
+                    <td className="p-2 font-black text-sm">
+                      {s.position === 1 ? "🥇" : s.position === 2 ? "🥈" : s.position === 3 ? "🥉" : `#${s.position}`}
+                    </td>
+                    <td className="p-2 font-bold">{s.teamName}</td>
+                    <td className="p-2 text-center text-muted-foreground">{s.played}</td>
+                    <td className="p-2 text-center text-green-600 font-medium">{s.won}</td>
+                    <td className="p-2 text-center text-destructive font-medium">{s.lost}</td>
+                    <td className="p-2 text-center text-muted-foreground">{s.drawn}</td>
+                    <td className="p-2 text-center text-muted-foreground">{s.goalsFor}</td>
+                    <td className="p-2 text-center text-muted-foreground">{s.goalsAgainst}</td>
+                    <td className="p-2 text-center font-black text-primary">{s.points}</td>
+                    <td className="p-2">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => startEdit(s)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                        <button onClick={() => { if (confirm("Remove this team?")) remove(s.id); }} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 // ── Applications Dialog ────────────────────────────────────────────────────────
@@ -364,6 +540,7 @@ export default function OwnerEvents() {
   const [showCreate, setShowCreate] = useState(false);
   const [showAnnounce, setShowAnnounce] = useState(false);
   const [viewApplications, setViewApplications] = useState<{ id: string; title: string } | null>(null);
+  const [viewStandings, setViewStandings] = useState<{ id: string; title: string } | null>(null);
   const [tab, setTab] = useState<"all" | OwnerEventType>("all");
 
   const { data: turfs = [] } = useQuery<any[]>({
@@ -535,15 +712,24 @@ export default function OwnerEvents() {
                   {/* Actions */}
                   <div className="flex gap-2 pt-2 border-t border-border">
                     {!isMaint && (
-                      <button
-                        onClick={() => setViewApplications({ id: ev.id, title: ev.title })}
-                        className="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold text-primary hover:bg-primary/5 py-2 rounded-xl transition-colors border border-primary/20"
-                      >
-                        <Eye className="h-3.5 w-3.5" /> Applications
-                        {ev.currentParticipants > 0 && (
-                          <span className="bg-primary text-primary-foreground text-[9px] font-black px-1.5 rounded-full">{ev.currentParticipants}</span>
-                        )}
-                      </button>
+                      <>
+                        <button
+                          onClick={() => setViewApplications({ id: ev.id, title: ev.title })}
+                          className="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold text-primary hover:bg-primary/5 py-2 rounded-xl transition-colors border border-primary/20"
+                        >
+                          <Eye className="h-3.5 w-3.5" /> Applications
+                          {ev.currentParticipants > 0 && (
+                            <span className="bg-primary text-primary-foreground text-[9px] font-black px-1.5 rounded-full">{ev.currentParticipants}</span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => setViewStandings({ id: ev.id, title: ev.title })}
+                          className="flex items-center justify-center gap-1.5 text-xs font-bold text-amber-600 hover:bg-amber-500/5 px-3 py-2 rounded-xl transition-colors border border-amber-500/20"
+                          title="Manage Standings"
+                        >
+                          <BarChart2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
                     )}
                     <button
                       onClick={() => { if (confirm("Delete this tournament?")) deleteMutation.mutate(ev.id); }}
@@ -587,6 +773,16 @@ export default function OwnerEvents() {
           eventTitle={viewApplications.title}
           token={token!}
           onClose={() => setViewApplications(null)}
+        />
+      )}
+
+      {/* Standings Dialog */}
+      {viewStandings && (
+        <StandingsDialog
+          eventId={viewStandings.id}
+          eventTitle={viewStandings.title}
+          token={token!}
+          onClose={() => setViewStandings(null)}
         />
       )}
     </div>

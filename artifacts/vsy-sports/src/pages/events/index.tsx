@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   Calendar, MapPin, Trophy, Users, Clock, Building2,
   Megaphone, Pin, Star, CheckCircle2, RefreshCw, Swords,
-  Zap, ChevronRight, Lock
+  Zap, ChevronRight, Lock, BarChart2
 } from "lucide-react";
 import { format, parseISO, isPast } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -52,6 +52,88 @@ function isOver(ev: AnyEvent) {
 function fullPct(ev: AnyEvent) {
   if (!ev.maxParticipants) return 0;
   return Math.min(100, Math.round((ev.currentParticipants / ev.maxParticipants) * 100));
+}
+
+// ─── Leaderboard Dialog ───────────────────────────────────────────────────────
+function LeaderboardDialog({ event, onClose }: { event: AnyEvent; onClose: () => void }) {
+  const { data: standings = [], isLoading } = useQuery<any[]>({
+    queryKey: ["standings", event.id],
+    queryFn: () => fetch(`/api/events/${event.id}/standings`).then(r => r.json()),
+  });
+
+  const medalEmoji = (pos: number) => pos === 1 ? "🥇" : pos === 2 ? "🥈" : pos === 3 ? "🥉" : null;
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <BarChart2 className="h-4 w-4 text-amber-500" /> Standings
+          </DialogTitle>
+          <p className="text-xs text-muted-foreground">{event.title}</p>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="h-12 rounded-xl bg-muted animate-pulse" />)}</div>
+        ) : standings.length === 0 ? (
+          <div className="flex flex-col items-center py-10 text-center">
+            <BarChart2 className="h-10 w-10 text-muted-foreground opacity-20 mb-3" />
+            <p className="font-bold text-muted-foreground text-sm">Standings not published yet</p>
+            <p className="text-xs text-muted-foreground mt-1">Check back after matches begin</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {standings.map((s: any) => {
+              const medal = medalEmoji(s.position);
+              const gd = s.goalsFor - s.goalsAgainst;
+              return (
+                <div key={s.id} className={cn(
+                  "flex items-center gap-3 p-3 rounded-xl border transition-colors",
+                  s.position === 1
+                    ? "bg-amber-500/5 border-amber-500/20"
+                    : s.position === 2
+                      ? "bg-slate-500/5 border-slate-500/20"
+                      : s.position === 3
+                        ? "bg-orange-500/5 border-orange-500/10"
+                        : "bg-muted/30 border-transparent"
+                )}>
+                  {/* Rank */}
+                  <div className="w-8 text-center flex-shrink-0">
+                    {medal
+                      ? <span className="text-lg">{medal}</span>
+                      : <span className="text-sm font-black text-muted-foreground">#{s.position}</span>}
+                  </div>
+
+                  {/* Team */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm truncate">{s.teamName}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {s.played}P · {s.won}W · {s.lost}L{s.drawn > 0 ? ` · ${s.drawn}D` : ""}
+                      {(s.goalsFor > 0 || s.goalsAgainst > 0) ? ` · GD ${gd > 0 ? "+" : ""}${gd}` : ""}
+                    </p>
+                  </div>
+
+                  {/* Points */}
+                  <div className="flex-shrink-0 text-right">
+                    <p className={cn(
+                      "text-lg font-black",
+                      s.position === 1 ? "text-amber-500" : "text-primary"
+                    )}>{s.points}</p>
+                    <p className="text-[9px] text-muted-foreground uppercase font-bold">pts</p>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Column legend */}
+            <p className="text-[10px] text-muted-foreground text-center pt-1">
+              P=Played · W=Won · L=Lost · D=Drawn · GD=Goal Diff
+            </p>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 // ─── Registration Dialog ──────────────────────────────────────────────────────
@@ -241,10 +323,12 @@ function EventCard({
   ev,
   myUserId,
   onRegister,
+  onLeaderboard,
 }: {
   ev: AnyEvent;
   myUserId?: string;
   onRegister: (ev: AnyEvent) => void;
+  onLeaderboard: (ev: AnyEvent) => void;
 }) {
   const isTournament = ev.type === "tournament";
   const pct = fullPct(ev);
@@ -384,21 +468,35 @@ function EventCard({
 
         {/* CTA */}
         {over ? (
-          <div className="text-center text-xs text-muted-foreground bg-muted/40 rounded-xl py-2.5 font-medium">
-            This {ev.type} has ended
+          <div className="flex gap-2">
+            <div className="flex-1 text-center text-xs text-muted-foreground bg-muted/40 rounded-xl py-2.5 font-medium">
+              Ended
+            </div>
+            {isTournament && (
+              <Button variant="outline" size="sm" className="h-10 px-3 gap-1.5 font-bold text-amber-600 border-amber-500/30 hover:bg-amber-500/5" onClick={() => onLeaderboard(ev)}>
+                <BarChart2 className="h-4 w-4" /> Standings
+              </Button>
+            )}
           </div>
         ) : (
-          <Button
-            className="w-full h-10 font-bold gap-2"
-            onClick={() => onRegister(ev)}
-            variant={pct >= 100 ? "outline" : "default"}
-          >
-            {pct >= 100
-              ? <><Users className="h-4 w-4" /> Full</>
-              : isTournament
-                ? <><Swords className="h-4 w-4" /> Register Team</>
-                : <><Zap className="h-4 w-4" /> Register Now</>}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              className="flex-1 h-10 font-bold gap-2"
+              onClick={() => onRegister(ev)}
+              variant={pct >= 100 ? "outline" : "default"}
+            >
+              {pct >= 100
+                ? <><Users className="h-4 w-4" /> Full</>
+                : isTournament
+                  ? <><Swords className="h-4 w-4" /> Register Team</>
+                  : <><Zap className="h-4 w-4" /> Register Now</>}
+            </Button>
+            {isTournament && (
+              <Button variant="outline" size="sm" className="h-10 px-3 gap-1.5 font-bold text-amber-600 border-amber-500/30 hover:bg-amber-500/5" onClick={() => onLeaderboard(ev)}>
+                <BarChart2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         )}
       </div>
     </Card>
@@ -503,6 +601,7 @@ export default function Events() {
   const { toast } = useToast();
   const [tab, setTab] = useState<Tab>("tournaments");
   const [registerTarget, setRegisterTarget] = useState<AnyEvent | null>(null);
+  const [leaderboardTarget, setLeaderboardTarget] = useState<AnyEvent | null>(null);
 
   const { data: events = [], isLoading } = useQuery<AnyEvent[]>({
     queryKey: ["public-events"],
@@ -664,6 +763,7 @@ export default function Events() {
                     ev={ev}
                     myUserId={(user as any)?.id}
                     onRegister={setRegisterTarget}
+                    onLeaderboard={setLeaderboardTarget}
                   />
                 ))
               )}
@@ -678,6 +778,14 @@ export default function Events() {
           event={registerTarget}
           alreadyJoined={alreadyJoined}
           onClose={() => setRegisterTarget(null)}
+        />
+      )}
+
+      {/* Leaderboard Dialog */}
+      {leaderboardTarget && (
+        <LeaderboardDialog
+          event={leaderboardTarget}
+          onClose={() => setLeaderboardTarget(null)}
         />
       )}
     </div>

@@ -19,3 +19,5 @@ export { Announcement } from "./models/Announcement";
 export type { IAnnouncement } from "./models/Announcement";
 export { PushSubscription } from "./models/PushSubscription";
 export type { IPushSubscription } from "./models/PushSubscription";
+export { Standing } from "./models/Standing";
+export type { IStanding } from "./models/Standing";

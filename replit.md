@@ -24,7 +24,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - Features:
   - Turf booking with slot selection and availability
   - Community posts with likes/comments
-  - Events & Tournaments listing with type badges (event/tournament)
+  - Events & Tournaments listing with Tournaments/Events/All tabs, featured banner, registration dialog
+  - Tournament leaderboard/standings viewer per tournament card
   - Shop/cart/orders
   - Live scores via WebSocket
   - User notification bell (announcements, general, booking updates)
@@ -38,7 +39,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 ## Owner Portal (`/owner`)
 - Dashboard, My Turfs, Bookings, Events, Revenue, Payout
-- **Events page** (`/owner/events`): Create events/tournaments/maintenance blocks, view applications, make announcements
+- **Events page** (`/owner/events`): Create events/tournaments/maintenance blocks, view applications, manage standings/leaderboard, make announcements
 - **NotificationBell**: Shows payout, account, turf approval, and announcement notifications
 
 ## Admin Portal (`/admin`)

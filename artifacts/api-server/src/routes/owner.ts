@@ -1,6 +1,6 @@
 import { Router, Response } from "express";
 import { Types } from "mongoose";
-import { Turf, Booking, User, Notification, Event, EventParticipant } from "@workspace/db";
+import { Turf, Booking, User, Notification, Event, EventParticipant, Standing } from "@workspace/db";
 import { authenticate, requireRole, AuthRequest } from "../middlewares/auth";
 
 const router = Router();
@@ -466,6 +466,60 @@ router.get("/owner/events/:id/applications", authenticate, requireRole("turf_own
       })),
     });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch applications" }); }
+});
+
+// ── Standings (Leaderboard) ────────────────────────────────────────────────────
+
+// GET /api/owner/events/:id/standings
+router.get("/owner/events/:id/standings", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    if (!Types.ObjectId.isValid(req.params.id)) { res.status(404).json({ error: "Not found" }); return; }
+    const standings = await Standing.find({ eventId: req.params.id }).sort({ position: 1 }).lean();
+    res.json(standings.map((s: any) => ({
+      id: s._id.toString(), eventId: s.eventId.toString(), position: s.position,
+      teamName: s.teamName, played: s.played, won: s.won, lost: s.lost, drawn: s.drawn,
+      points: s.points, goalsFor: s.goalsFor, goalsAgainst: s.goalsAgainst,
+      updatedAt: s.updatedAt?.toISOString(),
+    })));
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch standings" }); }
+});
+
+// POST /api/owner/events/:id/standings — upsert a team row
+router.post("/owner/events/:id/standings", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    if (!Types.ObjectId.isValid(req.params.id)) { res.status(404).json({ error: "Not found" }); return; }
+    const ev = await Event.findOne({ _id: req.params.id, createdBy: req.user!.id }).lean();
+    if (!ev && req.user!.role !== "admin") { res.status(403).json({ error: "Not your event" }); return; }
+    const { teamName, position, played, won, lost, drawn, points, goalsFor, goalsAgainst } = req.body;
+    if (!teamName || position == null) { res.status(400).json({ error: "teamName and position are required" }); return; }
+    const standing = await Standing.findOneAndUpdate(
+      { eventId: req.params.id, teamName },
+      { eventId: req.params.id, teamName, position: Number(position),
+        played: Number(played) || 0, won: Number(won) || 0, lost: Number(lost) || 0,
+        drawn: Number(drawn) || 0, points: Number(points) || 0,
+        goalsFor: Number(goalsFor) || 0, goalsAgainst: Number(goalsAgainst) || 0 },
+      { upsert: true, new: true }
+    ).lean() as any;
+    res.json({
+      id: standing._id.toString(), eventId: standing.eventId.toString(), position: standing.position,
+      teamName: standing.teamName, played: standing.played, won: standing.won, lost: standing.lost,
+      drawn: standing.drawn, points: standing.points, goalsFor: standing.goalsFor,
+      goalsAgainst: standing.goalsAgainst, updatedAt: standing.updatedAt?.toISOString(),
+    });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to save standing" }); }
+});
+
+// DELETE /api/owner/events/:id/standings/:standingId
+router.delete("/owner/events/:id/standings/:standingId", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    if (!Types.ObjectId.isValid(req.params.id) || !Types.ObjectId.isValid(req.params.standingId)) {
+      res.status(404).json({ error: "Not found" }); return;
+    }
+    const ev = await Event.findOne({ _id: req.params.id, createdBy: req.user!.id }).lean();
+    if (!ev && req.user!.role !== "admin") { res.status(403).json({ error: "Not your event" }); return; }
+    await Standing.findByIdAndDelete(req.params.standingId);
+    res.json({ success: true });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to delete standing" }); }
 });
 
 export default router;

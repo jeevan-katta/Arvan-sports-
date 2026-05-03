@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { Types } from "mongoose";
-import { Event, EventParticipant } from "@workspace/db";
+import { Event, EventParticipant, Standing } from "@workspace/db";
 import { authenticate, requireRole, AuthRequest } from "../middlewares/auth";
 
 const isValidId = (id: string) => Types.ObjectId.isValid(id);
@@ -24,6 +24,23 @@ function eventRes(e: any) {
   };
 }
 
+function standingRes(s: any) {
+  return {
+    id: s._id.toString(),
+    eventId: s.eventId.toString(),
+    position: s.position,
+    teamName: s.teamName,
+    played: s.played,
+    won: s.won,
+    lost: s.lost,
+    drawn: s.drawn,
+    points: s.points,
+    goalsFor: s.goalsFor,
+    goalsAgainst: s.goalsAgainst,
+    updatedAt: s.updatedAt?.toISOString(),
+  };
+}
+
 // GET /api/events — public
 router.get("/events", async (req: Request, res: Response) => {
   try {
@@ -31,7 +48,6 @@ router.get("/events", async (req: Request, res: Response) => {
     const query: any = {};
     if (featured === "true") query.featured = true;
     if (type) query.type = type;
-    // Exclude pure maintenance blocks from public listing unless explicitly requested
     if (!type) query.type = { $in: ["event", "tournament"] };
     const events = await Event.find(query).sort({ featured: -1, date: 1 }).lean();
     res.json(events.map(eventRes));
@@ -74,6 +90,15 @@ router.get("/events/:id", async (req: Request, res: Response) => {
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch event" }); }
 });
 
+// GET /api/events/:id/standings — public
+router.get("/events/:id/standings", async (req: Request, res: Response) => {
+  try {
+    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Event not found" }); return; }
+    const standings = await Standing.find({ eventId: req.params.id }).sort({ position: 1 }).lean();
+    res.json(standings.map(standingRes));
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch standings" }); }
+});
+
 // PUT /api/events/:id — admin only (full update)
 router.put("/events/:id", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
   try {
@@ -105,6 +130,7 @@ router.delete("/events/:id", authenticate, requireRole("admin"), async (req: Aut
     if (!isValidId(req.params.id)) { res.status(404).json({ error: "Event not found" }); return; }
     await Event.findByIdAndDelete(req.params.id);
     await EventParticipant.deleteMany({ eventId: req.params.id });
+    await Standing.deleteMany({ eventId: req.params.id });
     res.json({ success: true });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to delete event" }); }
 });
