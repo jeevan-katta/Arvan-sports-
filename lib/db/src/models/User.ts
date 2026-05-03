@@ -13,6 +13,9 @@ export interface IPayoutRecord {
   date: Date;
   note?: string;
   method?: string;
+  razorpayPayoutId?: string;
+  razorpayStatus?: string;
+  razorpayMode?: string;
 }
 
 export interface IUser extends Document {
@@ -31,6 +34,7 @@ export interface IUser extends Document {
   bankDetails?: IBankDetails;
   totalPayoutSent?: number;
   payoutHistory?: IPayoutRecord[];
+  razorpayContactId?: string;
   createdAt: Date;
 }
 
@@ -47,6 +51,9 @@ const PayoutRecordSchema = new Schema<IPayoutRecord>({
   date: { type: Date, default: Date.now },
   note: String,
   method: { type: String, default: "bank_transfer" },
+  razorpayPayoutId: String,
+  razorpayStatus: String,
+  razorpayMode: String,
 }, { _id: true, timestamps: false });
 
 const UserSchema = new Schema<IUser>({
@@ -64,6 +71,7 @@ const UserSchema = new Schema<IUser>({
   bankDetails: BankDetailsSchema,
   totalPayoutSent: { type: Number, default: 0 },
   payoutHistory: { type: [PayoutRecordSchema], default: [] },
+  razorpayContactId: String,
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 export const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
