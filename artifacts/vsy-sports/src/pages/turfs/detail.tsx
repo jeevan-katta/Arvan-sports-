@@ -122,7 +122,13 @@ export default function TurfDetail() {
           <ChevronLeft className="h-6 w-6" />
         </Button>
         {turf.images?.[0] ? (
-          <img src={turf.images[0]} alt={turf.name} className="w-full h-full object-cover" />
+          <img
+            src={turf.images[0]}
+            alt={turf.name}
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-secondary/20">
             <MapPin className="h-12 w-12 text-muted-foreground/50" />

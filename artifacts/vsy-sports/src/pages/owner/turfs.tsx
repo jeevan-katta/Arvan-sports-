@@ -56,15 +56,18 @@ const PRICING_SLOTS = [
   { key: "weekendNight", label: "Weekend Night",  sub: "Sat – Sun · 6 PM – 6 AM", icon: Moon, day: false },
 ] as const;
 
-// Convert Google Drive share links → direct-view URLs
+// Convert Google Drive share links → thumbnail CDN URLs (more reliable, no auth redirect)
 function normalizeImageUrl(raw: string): string {
   const trimmed = raw.trim();
   // https://drive.google.com/file/d/ID/view...
   const driveMatch = trimmed.match(/drive\.google\.com\/file\/d\/([^/?\s]+)/);
-  if (driveMatch) return `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
+  if (driveMatch) return `https://drive.google.com/thumbnail?id=${driveMatch[1]}&sz=w1200`;
   // https://drive.google.com/open?id=ID
   const openMatch = trimmed.match(/drive\.google\.com\/open\?id=([^&\s]+)/);
-  if (openMatch) return `https://drive.google.com/uc?export=view&id=${openMatch[1]}`;
+  if (openMatch) return `https://drive.google.com/thumbnail?id=${openMatch[1]}&sz=w1200`;
+  // https://drive.google.com/uc?id=ID or uc?export=view&id=ID  — convert to thumbnail
+  const ucMatch = trimmed.match(/drive\.google\.com\/uc.*[?&]id=([^&\s]+)/);
+  if (ucMatch) return `https://drive.google.com/thumbnail?id=${ucMatch[1]}&sz=w1200`;
   return trimmed;
 }
 

@@ -99,7 +99,10 @@ router.get("/owner/bookings", authenticate, requireRole("turf_owner", "admin"), 
     const turfIds = ownerTurfs.map((t: any) => t._id);
     if (!turfIds.length) { res.json([]); return; }
     const turfMap = Object.fromEntries((ownerTurfs as any[]).map((t: any) => [t._id.toString(), t]));
-    const bookings = await Booking.find({ turfId: { $in: turfIds } }).sort({ createdAt: -1 }).lean();
+    const { date } = req.query;
+    const filter: any = { turfId: { $in: turfIds } };
+    if (date) filter.date = date as string;
+    const bookings = await Booking.find(filter).sort({ date: 1, startTime: 1 }).lean();
     const userIds = [...new Set(bookings.map((b: any) => b.userId?.toString()))];
     const users = await User.find({ _id: { $in: userIds } }, "name email phone").lean();
     const userMap = Object.fromEntries(users.map((u: any) => [u._id.toString(), u]));
@@ -126,7 +129,13 @@ router.get("/owner/revenue", authenticate, requireRole("turf_owner", "admin"), a
     const ownerTurfs = await Turf.find({ ownerId: req.user!.id }, "_id name").lean();
     const turfIds = ownerTurfs.map((t: any) => t._id);
     if (!turfIds.length) { res.json({ totalRevenue: 0, totalBookings: 0, confirmedBookings: 0, pendingBookings: 0, perTurf: [] }); return; }
-    const bookings = await Booking.find({ turfId: { $in: turfIds } }).lean();
+    const { month, year } = req.query;
+    const dateFilter: any = {};
+    if (month && year) {
+      const y = String(year); const m = String(month).padStart(2, "0");
+      dateFilter.date = { $gte: `${y}-${m}-01`, $lte: `${y}-${m}-31` };
+    }
+    const bookings = await Booking.find({ turfId: { $in: turfIds }, ...dateFilter }).lean();
     const confirmed = (bookings as any[]).filter((b: any) => b.paymentStatus === "paid");
     const totalRevenue = confirmed.reduce((s: number, b: any) => s + (b.totalPrice || 0), 0);
     const perTurf = (ownerTurfs as any[]).map((turf: any) => {
