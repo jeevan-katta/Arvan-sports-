@@ -197,6 +197,86 @@ router.get("/owner/payout-status", authenticate, requireRole("turf_owner", "admi
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch payout status" }); }
 });
 
+// ── Today's Live Snapshot ────────────────────────────────────────────────────────
+
+router.get("/owner/today", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const owner = await User.findById(req.user!.id).lean() as any;
+    if (!owner) { res.status(404).json({ error: "Owner not found" }); return; }
+
+    const ownerTurfs = await Turf.find({ ownerId: req.user!.id }, "_id name area images").lean();
+    const turfIds = ownerTurfs.map((t: any) => t._id);
+    const turfMap = Object.fromEntries((ownerTurfs as any[]).map((t: any) => [t._id.toString(), t]));
+
+    // IST date string  "YYYY-MM-DD"
+    const istNow = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+    const todayStr = istNow.toISOString().slice(0, 10);
+
+    const [todayBookings, allPaidBookings] = await Promise.all([
+      turfIds.length
+        ? Booking.find({ turfId: { $in: turfIds }, date: todayStr }).sort({ startTime: 1 }).lean()
+        : Promise.resolve([]),
+      turfIds.length
+        ? Booking.find({ turfId: { $in: turfIds }, paymentStatus: "paid" }).lean()
+        : Promise.resolve([]),
+    ]);
+
+    // Today revenue (paid bookings today)
+    const todayPaid = (todayBookings as any[]).filter((b: any) => b.paymentStatus === "paid");
+    const todayRevenue = todayPaid.reduce((s: number, b: any) => s + (b.totalPrice || 0), 0);
+
+    // All-time payout calc
+    const commissionRate = owner.commissionRate ?? 20;
+    const grossRevenue   = (allPaidBookings as any[]).reduce((s: number, b: any) => s + (b.totalPrice || 0), 0);
+    const adminCommission = Math.round(grossRevenue * commissionRate / 100);
+    const ownerEarnings  = grossRevenue - adminCommission;
+    const payoutSent     = owner.payoutSent ?? 0;
+    const pendingPayout  = Math.max(0, ownerEarnings - payoutSent);
+
+    // Today's owner cut from today's paid bookings
+    const todayOwnerCut = Math.round(todayRevenue * (1 - commissionRate / 100));
+
+    // Upcoming slots today (status not cancelled)
+    const nowHHMM = `${String(istNow.getUTCHours()).padStart(2,"0")}:${String(istNow.getUTCMinutes()).padStart(2,"0")}`;
+    const upcomingToday = (todayBookings as any[]).filter((b: any) => b.startTime > nowHHMM && b.status !== "cancelled");
+
+    // Last payout record
+    const lastPayout = (owner.payoutHistory ?? []).slice(-1)[0] ?? null;
+
+    res.json({
+      todayDate: todayStr,
+      serverTimeIST: istNow.toISOString(),
+      // Today numbers
+      todayTotalBookings: (todayBookings as any[]).length,
+      todayPaidBookings: todayPaid.length,
+      todayRevenue,
+      todayOwnerCut,
+      todayUpcomingSlots: upcomingToday.length,
+      // Payout
+      commissionRate,
+      pendingPayout,
+      payoutSchedule: owner.payoutSchedule ?? "manual",
+      commissionHeld: owner.commissionHeld ?? false,
+      lastPayout: lastPayout ? { amount: lastPayout.amount, date: lastPayout.date instanceof Date ? lastPayout.date.toISOString() : lastPayout.date, method: lastPayout.method } : null,
+      // Today's booking list (slim)
+      todayBookingList: (todayBookings as any[]).map((b: any) => {
+        const turf = turfMap[b.turfId?.toString()];
+        return {
+          id: b._id.toString(),
+          turfName: turf?.name ?? "Turf",
+          turfImage: turf?.images?.[0] ?? null,
+          startTime: b.startTime,
+          endTime: b.endTime,
+          userName: b.userName,
+          totalPrice: b.totalPrice,
+          status: b.status,
+          paymentStatus: b.paymentStatus,
+        };
+      }),
+    });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch today snapshot" }); }
+});
+
 // ── Notifications ───────────────────────────────────────────────────────────────
 
 router.get("/owner/notifications", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {

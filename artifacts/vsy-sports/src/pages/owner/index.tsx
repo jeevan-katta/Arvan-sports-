@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { format, parseISO } from "date-fns";
+import EarningsWidget from "@/components/owner/EarningsWidget";
 
 const MONTHS = [
   "January","February","March","April","May","June",
@@ -42,7 +43,7 @@ export default function OwnerDashboard() {
   const token = localStorage.getItem("vsy_token") || "";
 
   const now = new Date();
-  const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1); // 1-12
+  const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1);
   const [filterYear, setFilterYear] = useState(now.getFullYear());
 
   const prevMonth = () => {
@@ -64,18 +65,6 @@ export default function OwnerDashboard() {
     enabled: !!token,
   });
 
-  const { data: bookings } = useQuery<Booking[]>({
-    queryKey: ["owner-bookings-dash", filterMonth, filterYear],
-    queryFn: () => {
-      const m = String(filterMonth).padStart(2, "0");
-      return apiFetch(`/api/owner/bookings?date=${filterYear}-${m}-01`, token).then(() =>
-        apiFetch(`/api/owner/bookings`, token)
-      ).catch(() => []);
-    },
-    enabled: !!token,
-  });
-
-  // Recent bookings for the selected month (filter client-side from full list)
   const { data: allBookings = [] } = useQuery<Booking[]>({
     queryKey: ["owner-bookings-all"],
     queryFn: () => apiFetch("/api/owner/bookings", token),
@@ -88,13 +77,17 @@ export default function OwnerDashboard() {
 
   return (
     <div className="p-4 space-y-5 pb-8">
+      {/* ── Greeting ── */}
       <div className="pt-2">
         <h2 className="text-2xl font-display font-bold">Welcome back,</h2>
         <p className="text-primary font-bold text-lg">{user?.name}</p>
         <p className="text-muted-foreground text-sm mt-1">Your turf performance overview</p>
       </div>
 
-      {/* Month / Year Filter */}
+      {/* ── Live Earnings Widget ── */}
+      <EarningsWidget />
+
+      {/* ── Month / Year Filter ── */}
       <div className="flex items-center justify-between bg-muted/60 rounded-2xl p-3">
         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={prevMonth}>
           <ChevronLeft className="h-4 w-4" />
@@ -115,7 +108,7 @@ export default function OwnerDashboard() {
         </Button>
       </div>
 
-      {/* Stats Grid */}
+      {/* ── Monthly Stats Grid ── */}
       <div className="grid grid-cols-2 gap-3">
         <Card className="p-4 border-none shadow-sm">
           <div className="flex items-center gap-2 mb-2">
@@ -162,10 +155,10 @@ export default function OwnerDashboard() {
         </Card>
       </div>
 
-      {/* Per Turf Breakdown */}
+      {/* ── Per Turf Breakdown ── */}
       {revenue?.perTurf && revenue.perTurf.length > 0 && (
         <div>
-          <h3 className="font-bold mb-3">Per Turf Performance</h3>
+          <h3 className="font-bold mb-3">Per Turf · {MONTHS[filterMonth - 1]}</h3>
           <div className="space-y-2">
             {revenue.perTurf.map(t => (
               <Card key={t.turfId} className="p-4 border-none shadow-sm">
@@ -187,7 +180,7 @@ export default function OwnerDashboard() {
         </div>
       )}
 
-      {/* Recent Bookings for selected month */}
+      {/* ── Recent Bookings for selected month ── */}
       {recentBookings.length > 0 && (
         <div>
           <h3 className="font-bold mb-3">
