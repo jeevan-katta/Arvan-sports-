@@ -51,80 +51,6 @@ export default function BookingDetail() {
   const createPaymentMutation = useCreateBookingPayment();
   const verifyPaymentMutation = useVerifyBookingPayment();
 
-  const handlePayment = async () => {
-    if (!booking) return;
-    try {
-      const paymentOrder = await createPaymentMutation.mutateAsync({
-        id: bookingId,
-        body: { paymentType },
-      } as any);
-      const orderId: string = (paymentOrder as any).orderId || "";
-      const paidAmount = Number((paymentOrder as any).paidAmount || 0);
-      const isAdvance = paymentType === "advance";
-
-      // Simulated payment (no real Razorpay keys configured)
-      if (orderId.startsWith("order_sim_")) {
-        await verifyPaymentMutation.mutateAsync({
-          id: bookingId,
-          data: {
-            razorpayOrderId: orderId,
-            razorpayPaymentId: `sim_pay_${Date.now()}`,
-            razorpaySignature: "simulated",
-          } as any,
-        });
-        queryClient.invalidateQueries({ queryKey: getGetBookingQueryKey(bookingId) });
-        toast({
-          title: "Payment Successful!",
-          description: isAdvance ? `Advance payment of ₹${paidAmount} completed. Pay the balance at the venue.` : "Your slot is confirmed.",
-        });
-        return;
-      }
-
-      // Real Razorpay flow
-      const rzpOptions = {
-        key: (paymentOrder as any).key,
-        amount: Math.round(paidAmount * 100),
-        currency: (paymentOrder as any).currency || "INR",
-        name: "Vsy Sports",
-        description: isAdvance
-          ? `30% Advance for Booking #${bookingId} (₹${paidAmount})`
-          : `Full Payment for Booking #${bookingId} (₹${paidAmount || totalPrice})`,
-        order_id: orderId,
-        prefill: { name: user?.name || "", email: user?.email || "" },
-        theme: { color: "#16a34a" },
-        handler: async (response: any) => {
-          try {
-            await verifyPaymentMutation.mutateAsync({
-              id: bookingId,
-              data: {
-                razorpayOrderId: response.razorpay_order_id,
-                razorpayPaymentId: response.razorpay_payment_id,
-                razorpaySignature: response.razorpay_signature,
-              }
-            });
-            queryClient.invalidateQueries({ queryKey: getGetBookingQueryKey(bookingId) });
-            toast({
-              title: "Payment Successful!",
-              description: isAdvance ? `Advance payment of ₹${paidAmount} completed. Pay the balance at the venue.` : "Your slot is confirmed.",
-            });
-          } catch (err: any) {
-            toast({ variant: "destructive", title: "Verification Failed", description: err.message });
-          }
-        },
-        modal: { ondismiss: () => toast({ title: "Payment cancelled" }) }
-      };
-      if (window.Razorpay) {
-        const rzp = new window.Razorpay(rzpOptions);
-        rzp.on("payment.failed", (r: any) => toast({ variant: "destructive", title: "Payment Failed", description: r.error?.description }));
-        rzp.open();
-      } else {
-        toast({ variant: "destructive", title: "Error", description: "Razorpay SDK not loaded." });
-      }
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Payment Failed", description: error.message });
-    }
-  };
-
   /** Helper: authenticated fetch using the stored JWT token */
   const authFetch = (url: string, options: RequestInit = {}) => {
     return fetch(url, {
@@ -135,6 +61,102 @@ export default function BookingDetail() {
         ...(options.headers as object || {}),
       },
     });
+  };
+
+  const handlePayment = async () => {
+    if (!booking) return;
+    try {
+      // Use authFetch directly so we can send paymentType in the request body.
+      // The generated hook ignores any body — it only passes { id } to the API.
+      const res = await authFetch(`/api/bookings/${bookingId}/payment`, {
+        method: "POST",
+        body: JSON.stringify({ paymentType }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || "Failed to create payment");
+      }
+      const paymentOrder = await res.json();
+
+      const orderId: string = paymentOrder.orderId || "";
+      const paidAmount = Number(paymentOrder.paidAmount || 0);
+      const isAdvance = paymentType === "advance";
+
+      // Simulated payment (no real Razorpay keys configured)
+      if (orderId.startsWith("order_sim_")) {
+        const verifyRes = await authFetch(`/api/bookings/${bookingId}/verify-payment`, {
+          method: "POST",
+          body: JSON.stringify({
+            razorpayOrderId: orderId,
+            razorpayPaymentId: `sim_pay_${Date.now()}`,
+            razorpaySignature: "simulated",
+          }),
+        });
+        if (!verifyRes.ok) {
+          const err = await verifyRes.json().catch(() => ({ error: verifyRes.statusText }));
+          throw new Error(err.error || "Verification failed");
+        }
+        queryClient.invalidateQueries({ queryKey: getGetBookingQueryKey(bookingId) });
+        toast({
+          title: "Payment Successful!",
+          description: isAdvance
+            ? `Advance payment of ₹${paidAmount} completed. Pay ₹${totalPrice - paidAmount} at the venue.`
+            : "Your slot is confirmed.",
+        });
+        return;
+      }
+
+      // Real Razorpay flow
+      const rzpOptions = {
+        key: paymentOrder.key,
+        amount: Math.round(paidAmount * 100),
+        currency: paymentOrder.currency || "INR",
+        name: "Vsy Sports",
+        description: isAdvance
+          ? `30% Advance for Booking (₹${paidAmount})`
+          : `Full Payment (₹${paidAmount})`,
+        order_id: orderId,
+        prefill: { name: user?.name || "", email: user?.email || "" },
+        theme: { color: "#16a34a" },
+        handler: async (response: any) => {
+          try {
+            const verifyRes = await authFetch(`/api/bookings/${bookingId}/verify-payment`, {
+              method: "POST",
+              body: JSON.stringify({
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+              }),
+            });
+            if (!verifyRes.ok) {
+              const err = await verifyRes.json().catch(() => ({ error: verifyRes.statusText }));
+              throw new Error(err.error || "Verification failed");
+            }
+            queryClient.invalidateQueries({ queryKey: getGetBookingQueryKey(bookingId) });
+            toast({
+              title: "Payment Successful!",
+              description: isAdvance
+                ? `Advance payment of ₹${paidAmount} completed. Pay ₹${totalPrice - paidAmount} at the venue.`
+                : "Your slot is confirmed.",
+            });
+          } catch (err: any) {
+            toast({ variant: "destructive", title: "Verification Failed", description: err.message });
+          }
+        },
+        modal: { ondismiss: () => toast({ title: "Payment cancelled" }) },
+      };
+      if (window.Razorpay) {
+        const rzp = new window.Razorpay(rzpOptions);
+        rzp.on("payment.failed", (r: any) =>
+          toast({ variant: "destructive", title: "Payment Failed", description: r.error?.description })
+        );
+        rzp.open();
+      } else {
+        toast({ variant: "destructive", title: "Error", description: "Razorpay SDK not loaded." });
+      }
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Payment Failed", description: error.message });
+    }
   };
 
   const handleGoLive = async () => {
