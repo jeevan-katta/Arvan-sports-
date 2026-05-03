@@ -1,6 +1,6 @@
 import { Router, Response } from "express";
 import bcrypt from "bcryptjs";
-import { User, Turf, Booking, Event, Order, Product } from "@workspace/db";
+import { User, Turf, Booking, Event, Order, Product, Notification } from "@workspace/db";
 import { authenticate, requireRole, AuthRequest } from "../middlewares/auth";
 
 const router = Router();
@@ -366,6 +366,15 @@ router.post("/admin/owners/:id/hold", authenticate, requireRole("admin"), async 
     if (!owner) { res.status(404).json({ error: "Owner not found" }); return; }
     const newHeld = !owner.commissionHeld;
     const updated = await User.findByIdAndUpdate(req.params.id, { commissionHeld: newHeld }, { new: true }).lean();
+    // Send notification to owner
+    await Notification.create({
+      userId: req.params.id,
+      type: newHeld ? "account_held" : "account_released",
+      title: newHeld ? "Payouts Put On Hold" : "Payouts Released",
+      message: newHeld
+        ? "Your payouts have been put on hold by admin. Please contact support for details."
+        : "Your payouts have been released. Payments will resume on your regular schedule.",
+    });
     res.json({ ...userRes(updated!), commissionHeld: newHeld });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to toggle hold" }); }
 });
@@ -386,6 +395,15 @@ router.post("/admin/owners/:id/payout", authenticate, requireRole("admin"), asyn
       { $inc: { totalPayoutSent: Number(amount) }, $push: { payoutHistory: payoutRecord } },
       { new: true }
     ).lean();
+    // Send notification to owner
+    const methodLabel: Record<string, string> = { bank_transfer: "Bank Transfer", upi: "UPI", cash: "Cash", cheque: "Cheque" };
+    await Notification.create({
+      userId: req.params.id,
+      type: "payout_received",
+      title: "Payout Processed",
+      message: `₹${Number(amount).toLocaleString("en-IN")} has been sent via ${methodLabel[method] || "Bank Transfer"}.${note ? ` Note: ${note}` : ""}`,
+      amount: Number(amount),
+    });
     res.json(userRes(updated!));
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to record payout" }); }
 });

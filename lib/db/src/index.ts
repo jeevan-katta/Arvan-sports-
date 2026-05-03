@@ -13,3 +13,5 @@ export { Post, PostJoin, Message } from "./models/Community";
 export type { IPost, IPostJoin, IMessage } from "./models/Community";
 export { Match } from "./models/Match";
 export type { IMatch, IMatchPlayer, IMatchBowler } from "./models/Match";
+export { Notification } from "./models/Notification";
+export type { INotification } from "./models/Notification";

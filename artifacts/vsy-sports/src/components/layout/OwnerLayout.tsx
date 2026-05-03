@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+import { NotificationBell } from "@/components/owner/NotificationBell";
 
 const navItems = [
   { name: "Dashboard", href: "/owner",          icon: LayoutDashboard, exact: true },
@@ -25,21 +26,25 @@ export function OwnerLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-muted/30 flex justify-center">
       <div className="w-full max-w-md bg-background min-h-screen flex flex-col shadow-2xl">
 
-        {/* Top nav */}
+        {/* Top bar */}
         <header className="sticky top-0 z-40 bg-card border-b border-border">
-          <div className="h-14 flex items-center justify-between px-4">
+          <div className="h-12 flex items-center justify-between px-4 gap-3">
             <h1 className="font-display font-bold text-base text-primary flex-shrink-0">
               OWNER PORTAL
             </h1>
-            <button
-              onClick={() => { logout(); setLocation("/login"); }}
-              className="flex-shrink-0 flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-destructive transition-colors"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-            </button>
+
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <NotificationBell />
+              <button
+                onClick={() => { logout(); setLocation("/login"); }}
+                className="flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-destructive transition-colors h-8 w-8 justify-center rounded-full hover:bg-muted"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
-          {/* Nav pills — scrollable */}
+          {/* Nav pills */}
           <div className="flex gap-1.5 px-4 pb-3 overflow-x-auto hide-scrollbar">
             {navItems.map((item) => {
               const active = isActive(item.href, item.exact);
