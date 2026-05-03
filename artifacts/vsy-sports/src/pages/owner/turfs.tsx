@@ -56,29 +56,44 @@ const PRICING_SLOTS = [
   { key: "weekendNight", label: "Weekend Night",  sub: "Sat – Sun · 6 PM – 6 AM", icon: Moon, day: false },
 ] as const;
 
-// Compress image using Canvas API and return a base64 data URL
-// Max 1200px on longest side, JPEG quality 0.82 → ~80-150 KB per image
-function compressImage(file: File, maxPx = 1200, quality = 0.82): Promise<string> {
+// Read file as base64 data URL via FileReader (works on all browsers including iOS Safari)
+function readFileAsDataURL(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target?.result as string);
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+// Compress image using Canvas API — resize to maxPx, JPEG quality 0.82
+// Falls back to raw FileReader data URL if canvas compression fails
+async function compressImage(file: File, maxPx = 1200, quality = 0.82): Promise<string> {
+  const rawDataUrl = await readFileAsDataURL(file);
+  return new Promise(resolve => {
     const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
     img.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      let { width, height } = img;
-      if (width > maxPx || height > maxPx) {
-        if (width > height) { height = Math.round((height / width) * maxPx); width = maxPx; }
-        else { width = Math.round((width / height) * maxPx); height = maxPx; }
+      try {
+        let { width, height } = img;
+        if (width > maxPx || height > maxPx) {
+          if (width > height) { height = Math.round((height / width) * maxPx); width = maxPx; }
+          else { width = Math.round((width / height) * maxPx); height = maxPx; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { resolve(rawDataUrl); return; }
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL("image/jpeg", quality);
+        // If canvas produced empty output, fall back to original
+        resolve(compressed.length > 100 ? compressed : rawDataUrl);
+      } catch {
+        resolve(rawDataUrl);
       }
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) { reject(new Error("Canvas not supported")); return; }
-      ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL("image/jpeg", quality));
     };
-    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error("Failed to load image")); };
-    img.src = objectUrl;
+    img.onerror = () => resolve(rawDataUrl); // fallback: use uncompressed original
+    img.src = rawDataUrl;
   });
 }
 
@@ -130,12 +145,13 @@ function ImageSection({
     setUploadError("");
     const uploaded: string[] = [];
     for (const file of toUpload) {
-      try {
-        const dataUrl = await compressImage(file);
-        uploaded.push(dataUrl);
-      } catch {
-        setUploadError("One or more images failed to process. Try a different photo.");
+      // 25 MB per-file guard (raw iPhone HEIC can be large)
+      if (file.size > 25 * 1024 * 1024) {
+        setUploadError("File too large. Please choose a photo under 25 MB.");
+        continue;
       }
+      const dataUrl = await compressImage(file);
+      uploaded.push(dataUrl);
     }
     if (uploaded.length) onChange([...images, ...uploaded]);
     setUploading(false);
