@@ -5,11 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Search, MapPin, Star, ArrowRight, Users, Trophy, ShoppingBag, Navigation, Loader2, AlertCircle, Sparkles, Calendar, IndianRupee } from "lucide-react";
 import { useListTurfs, useListEvents } from "@workspace/api-client-react";
 import { Link } from "wouter";
+import { useMemo, useState } from "react";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useLocation } from "wouter";
 
 export default function Home() {
   const [, navigate] = useLocation();
+  const [search, setSearch] = useState("");
   const { lat, lng, city, loading: locLoading, error: locError, request: requestLocation } = useGeolocation(true);
 
   const { data: nearbyTurfs, isLoading: loadingNearby } = useListTurfs(
@@ -40,6 +42,52 @@ export default function Home() {
   const isLoadingTurfs = lat && lng ? loadingNearby : loadingTop;
   const hasFeaturedTurfs = featuredTurfs && featuredTurfs.length > 0;
   const hasFeaturedEvents = featuredEvents && featuredEvents.length > 0;
+  const searchQuery = search.trim().toLowerCase();
+  const allSearchResults = useMemo(() => {
+    const turfMatches = (displayTurfs ?? []).filter((turf: any) => {
+      if (!searchQuery) return true;
+      const haystack = [
+        turf.name,
+        turf.area,
+        turf.city,
+        turf.location,
+        turf.address,
+        turf.type,
+        "turf",
+        "venue",
+        "ground",
+        "box cricket",
+        "book venue",
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(searchQuery);
+    });
+
+    const eventMatches = (featuredEvents ?? []).filter((event: any) => {
+      if (!searchQuery) return true;
+      const typeLabel = event.type === "tournament" ? "tournament event" : "event";
+      const haystack = [
+        event.title,
+        event.description,
+        event.venue,
+        event.area,
+        event.prize,
+        typeLabel,
+        "tournament",
+        "tornament",
+        "event",
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(searchQuery);
+    });
+
+    const shopMatch = searchQuery.includes("shop") || searchQuery.includes("store") || searchQuery.includes("product");
+    return { turfMatches, eventMatches, shopMatch };
+  }, [displayTurfs, featuredEvents, searchQuery]);
 
   return (
     <div className="flex flex-col min-h-full">
@@ -60,10 +108,49 @@ export default function Home() {
             <Input
               placeholder="Search turfs, areas, or events..."
               className="pl-9 bg-background/95 border-none shadow-sm text-foreground h-12 rounded-xl"
-              onFocus={() => navigate("/turfs")}
-              readOnly
+              value={search}
+              onChange={e => setSearch(e.target.value)}
             />
           </div>
+          {searchQuery && (
+            <div className="relative z-10 mt-3 rounded-2xl bg-background/95 p-3 shadow-sm space-y-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-2">Matching Venues</p>
+                <div className="space-y-2">
+                  {allSearchResults.turfMatches.length > 0 ? allSearchResults.turfMatches.slice(0, 3).map((turf: any) => (
+                    <Link key={turf.id} href={`/turfs/${turf.id}`} className="flex items-center gap-3 rounded-xl border border-border p-2">
+                      <div className="h-11 w-11 rounded-lg bg-muted overflow-hidden shrink-0">
+                        {turf.images?.[0] ? <img src={turf.images[0]} alt={turf.name} className="h-full w-full object-cover" /> : <MapPin className="h-5 w-5 m-3 text-muted-foreground" />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold truncate">{turf.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{turf.area || turf.city || "Turf"}</p>
+                      </div>
+                    </Link>
+                  )) : <p className="text-xs text-muted-foreground">No matching venues.</p>}
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-2">Matching Events</p>
+                <div className="space-y-2">
+                  {allSearchResults.eventMatches.length > 0 ? allSearchResults.eventMatches.slice(0, 3).map((event: any) => (
+                    <Link key={event.id} href={`/events/${event.id}`} className="flex items-center gap-3 rounded-xl border border-border p-2">
+                      <div className="h-11 w-11 rounded-lg bg-muted overflow-hidden shrink-0 flex items-center justify-center">
+                        {event.image ? <img src={event.image} alt={event.title} className="h-full w-full object-cover" /> : <Trophy className="h-5 w-5 text-primary" />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold truncate">{event.title}</p>
+                        <p className="text-xs text-muted-foreground truncate">{event.type === "tournament" ? "Tournament" : "Event"}{event.venue ? ` · ${event.venue}` : ""}</p>
+                      </div>
+                    </Link>
+                  )) : <p className="text-xs text-muted-foreground">No matching events.</p>}
+                </div>
+              </div>
+              <Button variant="secondary" className="w-full rounded-xl" onClick={() => navigate(allSearchResults.shopMatch ? "/shop" : allSearchResults.eventMatches.length > 0 ? "/events" : "/turfs")}>
+                Search all results
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Quick Actions */}

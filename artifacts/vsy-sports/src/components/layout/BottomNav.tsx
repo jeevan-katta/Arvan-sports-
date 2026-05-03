@@ -29,11 +29,11 @@ export function BottomNav() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border pb-safe">
-      <div className="flex justify-around items-center h-16 max-w-md mx-auto w-full px-2">
+      <div className="flex justify-around items-center h-16 max-w-md mx-auto w-full px-3 gap-1">
         {navItems.map((item) => {
           const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
           return (
-            <Link key={item.name} href={item.href} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+            <Link key={item.name} href={item.href} className={`flex flex-col items-center justify-center min-w-0 flex-1 h-full space-y-1 ${isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
                 <div className="relative">
                   <item.icon className="h-5 w-5" />
                   {item.badge && item.badge > 0 && (
