@@ -29,15 +29,15 @@ export function BottomNav() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border pb-safe">
-      <div className="grid grid-cols-6 items-center h-16 max-w-md mx-auto w-full px-2">
+      <div className="grid grid-cols-6 items-end h-18 max-w-md mx-auto w-full px-2 pt-1">
         {navItems.map((item) => {
           const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
           return (
-            <Link key={item.name} href={item.href} className={`flex flex-col items-center justify-center min-w-0 h-full py-1 space-y-0.5 ${isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
-                <div className="relative">
+            <Link key={item.name} href={item.href} className={`flex flex-col items-center justify-end min-w-0 h-full pb-1.5 space-y-1 ${isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                <div className="relative flex items-center justify-center">
                   <item.icon className="h-5 w-5" />
                   {item.badge && item.badge > 0 && (
-                    <Badge className="absolute -top-2 -right-2 h-4 min-w-4 px-1 flex items-center justify-center text-[10px] bg-primary text-primary-foreground">
+                    <Badge className="absolute -top-2 -right-2 h-4 min-w-4 px-1 flex items-center justify-center text-[10px] leading-none bg-primary text-primary-foreground">
                       {item.badge}
                     </Badge>
                   )}
