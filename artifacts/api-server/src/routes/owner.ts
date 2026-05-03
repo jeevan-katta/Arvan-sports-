@@ -1,5 +1,6 @@
 import { Router, Response } from "express";
-import { Turf, Booking, User, Notification } from "@workspace/db";
+import { Types } from "mongoose";
+import { Turf, Booking, User, Notification, Event, EventParticipant } from "@workspace/db";
 import { authenticate, requireRole, AuthRequest } from "../middlewares/auth";
 
 const router = Router();
@@ -345,6 +346,120 @@ router.put("/owner/notifications/:id/read", authenticate, requireRole("turf_owne
     await Notification.findOneAndUpdate({ _id: req.params.id, userId: req.user!.id }, { read: true });
     res.json({ success: true });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to mark notification read" }); }
+});
+
+// ── Owner Events & Tournaments ────────────────────────────────────────────────
+
+router.get("/owner/events", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const events = await Event.find({ createdBy: req.user!.id }).sort({ createdAt: -1 }).lean();
+    const eventIds = events.map((e: any) => e._id);
+    const countMap: Record<string, number> = {};
+    if (eventIds.length) {
+      const parts = await EventParticipant.aggregate([
+        { $match: { eventId: { $in: eventIds } } },
+        { $group: { _id: "$eventId", count: { $sum: 1 } } },
+      ]);
+      parts.forEach((p: any) => { countMap[p._id.toString()] = p.count; });
+    }
+    res.json(events.map((e: any) => ({
+      id: e._id.toString(), title: e.title, description: e.description,
+      date: e.date, time: e.time, venue: e.venue, area: e.area, image: e.image,
+      prize: e.prize, entryFee: e.entryFee, maxParticipants: e.maxParticipants,
+      currentParticipants: countMap[e._id.toString()] ?? e.currentParticipants,
+      featured: e.featured, status: e.status,
+      type: e.type || "event",
+      turfId: e.turfId?.toString(), turfName: e.turfName,
+      maintenanceStartTime: e.maintenanceStartTime, maintenanceEndTime: e.maintenanceEndTime,
+      createdAt: e.createdAt?.toISOString(),
+    })));
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch owner events" }); }
+});
+
+router.post("/owner/events", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const { title, description, date, time, venue, area, prize, entryFee, maxParticipants, type, turfId, turfName, maintenanceStartTime, maintenanceEndTime } = req.body;
+    if (!title?.trim() || !date) { res.status(400).json({ error: "title and date required" }); return; }
+
+    // If turfId provided, verify ownership
+    if (turfId && Types.ObjectId.isValid(turfId)) {
+      const turf = await Turf.findOne({ _id: turfId, ownerId: req.user!.id }).lean();
+      if (!turf && req.user!.role !== "admin") { res.status(403).json({ error: "You don't own that turf" }); return; }
+    }
+
+    const me = await User.findById(req.user!.id).select("name").lean() as any;
+    const event = await Event.create({
+      title: title.trim(), description, date, time, venue, area, prize,
+      entryFee: entryFee || 0, maxParticipants,
+      type: type || "event",
+      turfId: turfId && Types.ObjectId.isValid(turfId) ? turfId : undefined,
+      turfName,
+      maintenanceStartTime, maintenanceEndTime,
+      createdBy: req.user!.id,
+      createdByRole: req.user!.role === "admin" ? "admin" : "owner",
+      createdByName: me?.name || "",
+      status: "upcoming",
+      featured: false,
+    });
+
+    res.status(201).json({
+      id: event._id.toString(), title: event.title, date: event.date, type: event.type,
+      turfId: event.turfId?.toString(), turfName: event.turfName,
+      createdAt: event.createdAt?.toISOString(),
+    });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to create event" }); }
+});
+
+router.put("/owner/events/:id", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    if (!Types.ObjectId.isValid(req.params.id)) { res.status(404).json({ error: "Not found" }); return; }
+    const existing = await Event.findOne({ _id: req.params.id, createdBy: req.user!.id }).lean();
+    if (!existing && req.user!.role !== "admin") { res.status(403).json({ error: "Not your event" }); return; }
+    const allowed = ["title","description","date","time","venue","area","prize","entryFee","maxParticipants","status","type","maintenanceStartTime","maintenanceEndTime","turfName"];
+    const update: any = {};
+    for (const k of allowed) if (req.body[k] !== undefined) update[k] = req.body[k];
+    const updated = await Event.findByIdAndUpdate(req.params.id, update, { new: true }).lean() as any;
+    if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+    res.json({ id: updated._id.toString(), ...update });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to update event" }); }
+});
+
+router.delete("/owner/events/:id", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    if (!Types.ObjectId.isValid(req.params.id)) { res.status(404).json({ error: "Not found" }); return; }
+    const existing = await Event.findOne({ _id: req.params.id, createdBy: req.user!.id }).lean();
+    if (!existing && req.user!.role !== "admin") { res.status(403).json({ error: "Not your event" }); return; }
+    await Event.findByIdAndDelete(req.params.id);
+    await EventParticipant.deleteMany({ eventId: req.params.id });
+    res.json({ success: true });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to delete event" }); }
+});
+
+router.get("/owner/events/:id/applications", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    if (!Types.ObjectId.isValid(req.params.id)) { res.status(404).json({ error: "Not found" }); return; }
+    const ev = await Event.findOne({ _id: req.params.id, createdBy: req.user!.id }).lean() as any;
+    if (!ev && req.user!.role !== "admin") { res.status(403).json({ error: "Not your event" }); return; }
+    const participants = await EventParticipant.find({ eventId: req.params.id })
+      .populate("userId", "name phone email avatar")
+      .sort({ joinedAt: -1 })
+      .lean();
+    res.json({
+      eventId: req.params.id,
+      eventTitle: ev?.title,
+      total: participants.length,
+      applications: participants.map((p: any) => ({
+        id: p._id.toString(),
+        userId: p.userId?._id?.toString() || p.userId?.toString(),
+        name: p.name || p.userId?.name || "Unknown",
+        phone: p.phone || p.userId?.phone,
+        email: p.userId?.email,
+        avatar: p.userId?.avatar,
+        teamName: p.teamName,
+        joinedAt: p.joinedAt?.toISOString(),
+      })),
+    });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch applications" }); }
 });
 
 export default router;

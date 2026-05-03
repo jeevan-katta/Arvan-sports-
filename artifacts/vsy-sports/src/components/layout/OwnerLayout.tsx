@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  LayoutDashboard, Building2, CalendarDays, TrendingUp, Wallet, LogOut,
+  LayoutDashboard, Building2, CalendarDays, TrendingUp, Wallet, LogOut, Trophy,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ const navItems = [
   { name: "Dashboard", href: "/owner",          icon: LayoutDashboard, exact: true },
   { name: "My Turfs",  href: "/owner/turfs",    icon: Building2 },
   { name: "Bookings",  href: "/owner/bookings", icon: CalendarDays },
+  { name: "Events",    href: "/owner/events",   icon: Trophy },
   { name: "Revenue",   href: "/owner/revenue",  icon: TrendingUp },
   { name: "Payout",    href: "/owner/payout",   icon: Wallet },
 ];

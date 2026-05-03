@@ -15,3 +15,5 @@ export { Match } from "./models/Match";
 export type { IMatch, IMatchPlayer, IMatchBowler } from "./models/Match";
 export { Notification } from "./models/Notification";
 export type { INotification } from "./models/Notification";
+export { Announcement } from "./models/Announcement";
+export type { IAnnouncement } from "./models/Announcement";

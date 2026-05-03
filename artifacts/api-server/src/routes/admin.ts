@@ -721,4 +721,54 @@ router.get("/admin/shop/stats", authenticate, requireRole("admin"), async (req: 
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch shop stats" }); }
 });
 
+// ── Feature Toggles ────────────────────────────────────────────────────────────
+
+router.put("/admin/turfs/:id/feature", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const turf = await Turf.findById(req.params.id).lean() as any;
+    if (!turf) { res.status(404).json({ error: "Turf not found" }); return; }
+    const updated = await Turf.findByIdAndUpdate(req.params.id, { featured: !turf.featured }, { new: true }).lean() as any;
+    res.json({ id: updated._id.toString(), featured: updated.featured });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to toggle feature" }); }
+});
+
+router.put("/admin/events/:id/feature", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const ev = await Event.findById(req.params.id).lean() as any;
+    if (!ev) { res.status(404).json({ error: "Event not found" }); return; }
+    const updated = await Event.findByIdAndUpdate(req.params.id, { featured: !ev.featured }, { new: true }).lean() as any;
+    res.json({ id: updated._id.toString(), featured: updated.featured });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to toggle feature" }); }
+});
+
+// ── All Events (admin view) ────────────────────────────────────────────────────
+
+router.get("/admin/events-all", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const events = await Event.find().sort({ createdAt: -1 }).lean();
+    res.json(events.map((e: any) => ({
+      id: e._id.toString(), title: e.title, date: e.date, time: e.time,
+      venue: e.venue, area: e.area, prize: e.prize, entryFee: e.entryFee,
+      maxParticipants: e.maxParticipants, currentParticipants: e.currentParticipants,
+      featured: e.featured, status: e.status, type: e.type || "event",
+      createdByRole: e.createdByRole || "admin", createdByName: e.createdByName || "",
+      turfName: e.turfName, createdAt: e.createdAt?.toISOString(),
+    })));
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch events" }); }
+});
+
+// ── All Announcements (admin view) ────────────────────────────────────────────
+
+router.get("/admin/announcements", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const { Announcement } = await import("@workspace/db");
+    const list = await Announcement.find().sort({ pinned: -1, createdAt: -1 }).lean();
+    res.json(list.map((a: any) => ({
+      id: a._id.toString(), title: a.title, message: a.message,
+      type: a.type, createdByRole: a.createdByRole, createdByName: a.createdByName,
+      turfName: a.turfName, pinned: a.pinned, createdAt: a.createdAt?.toISOString(),
+    })));
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch announcements" }); }
+});
+
 export default router;

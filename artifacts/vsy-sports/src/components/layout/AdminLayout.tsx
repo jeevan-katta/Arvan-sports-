@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Users, Building2, Wallet, ShoppingBag,
-  LogOut, ChevronDown, Home, Check, Zap,
+  LogOut, ChevronDown, Home, Check, Zap, Trophy, Megaphone,
+  CalendarDays,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
@@ -12,12 +13,15 @@ interface AdminLayoutProps {
 }
 
 const NAV_ITEMS = [
-  { name: "Dashboard", href: "/admin",        icon: LayoutDashboard, exact: true },
-  { name: "Owners",    href: "/admin/owners", icon: Building2 },
-  { name: "Turfs",     href: "/admin/turfs",  icon: Building2 },
-  { name: "Users",     href: "/admin/users",  icon: Users },
-  { name: "Payout",    href: "/admin/payout", icon: Wallet },
-  { name: "Shop",      href: "/admin/shop",   icon: ShoppingBag },
+  { name: "Dashboard",      href: "/admin",                icon: LayoutDashboard, exact: true },
+  { name: "Owners",         href: "/admin/owners",         icon: Building2 },
+  { name: "Turfs",          href: "/admin/turfs",          icon: Building2 },
+  { name: "Users",          href: "/admin/users",          icon: Users },
+  { name: "Bookings",       href: "/admin/bookings",       icon: CalendarDays },
+  { name: "Events",         href: "/admin/events",         icon: Trophy },
+  { name: "Announcements",  href: "/admin/announcements",  icon: Megaphone },
+  { name: "Payout",         href: "/admin/payout",         icon: Wallet },
+  { name: "Shop",           href: "/admin/shop",           icon: ShoppingBag },
 ];
 
 export function AdminLayout({ children }: AdminLayoutProps) {
@@ -31,12 +35,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       n.exact ? location === n.href : location === n.href || location.startsWith(n.href + "/")
     ) ?? NAV_ITEMS[0];
 
-  // Close dropdown whenever the route changes
-  useEffect(() => {
-    setOpen(false);
-  }, [location]);
+  useEffect(() => { setOpen(false); }, [location]);
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
@@ -82,7 +82,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             </button>
 
             {open && (
-              <div className="absolute left-1/2 -translate-x-1/2 top-[calc(100%+8px)] w-52 bg-[#161924] border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden z-50">
+              <div className="absolute left-1/2 -translate-x-1/2 top-[calc(100%+8px)] w-56 bg-[#161924] border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden z-50">
                 <div className="p-1.5 space-y-0.5">
                   {NAV_ITEMS.map(item => {
                     const isActive = item.exact

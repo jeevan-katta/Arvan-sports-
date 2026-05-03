@@ -80,4 +80,33 @@ router.put("/auth/me", authenticate, async (req: AuthRequest, res: Response) => 
   }
 });
 
+// ── User Notifications ─────────────────────────────────────────────────────────
+import { Notification } from "@workspace/db";
+
+router.get("/user/notifications", authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const notes = await Notification.find({ userId: req.user!.id })
+      .sort({ createdAt: -1 }).limit(50).lean();
+    res.json(notes.map((n: any) => ({
+      id: n._id.toString(), type: n.type, title: n.title, message: n.message,
+      read: n.read, amount: n.amount, linkId: n.linkId,
+      createdAt: n.createdAt?.toISOString(),
+    })));
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed" }); }
+});
+
+router.put("/user/notifications/read-all", authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    await Notification.updateMany({ userId: req.user!.id, read: false }, { read: true });
+    res.json({ success: true });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed" }); }
+});
+
+router.put("/user/notifications/:id/read", authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    await Notification.findOneAndUpdate({ _id: req.params.id, userId: req.user!.id }, { read: true });
+    res.json({ success: true });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed" }); }
+});
+
 export default router;

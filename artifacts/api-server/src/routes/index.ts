@@ -10,6 +10,7 @@ import adminRouter from "./admin";
 import ownerRouter from "./owner";
 import liveScoresRouter from "./live-scores";
 import uploadRouter from "./upload";
+import announcementsRouter from "./announcements";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(adminRouter);
 router.use(ownerRouter);
 router.use(liveScoresRouter);
 router.use(uploadRouter);
+router.use(announcementsRouter);
 
 export default router;

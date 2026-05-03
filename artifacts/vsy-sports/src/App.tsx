@@ -41,6 +41,9 @@ import OwnerTurfs from "@/pages/owner/turfs";
 import OwnerBookings from "@/pages/owner/bookings";
 import OwnerRevenue from "@/pages/owner/revenue";
 import OwnerPayout from "@/pages/owner/payout";
+import OwnerEvents from "@/pages/owner/events";
+
+import AdminAnnouncements from "@/pages/admin/announcements";
 
 import NotFound from "@/pages/not-found";
 
@@ -90,6 +93,9 @@ function Router() {
       <Route path="/owner/payout">
         <OwnerLayout><OwnerRoute component={OwnerPayout} /></OwnerLayout>
       </Route>
+      <Route path="/owner/events">
+        <OwnerLayout><OwnerRoute component={OwnerEvents} /></OwnerLayout>
+      </Route>
 
       {/* ── Admin Routes (flat — no nested Switch inside wildcard) ── */}
       <Route path="/admin">
@@ -115,6 +121,9 @@ function Router() {
       </Route>
       <Route path="/admin/bookings">
         <AdminLayout><AdminRoute component={AdminBookings} /></AdminLayout>
+      </Route>
+      <Route path="/admin/announcements">
+        <AdminLayout><AdminRoute component={AdminAnnouncements} /></AdminLayout>
       </Route>
 
       {/* ── Main App Routes ── */}
