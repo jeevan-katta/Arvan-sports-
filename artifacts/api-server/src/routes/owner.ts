@@ -99,8 +99,13 @@ router.get("/owner/bookings", authenticate, requireRole("turf_owner", "admin"), 
     const turfIds = ownerTurfs.map((t: any) => t._id);
     if (!turfIds.length) { res.json([]); return; }
     const turfMap = Object.fromEntries((ownerTurfs as any[]).map((t: any) => [t._id.toString(), t]));
-    const { date } = req.query;
-    const filter: any = { turfId: { $in: turfIds } };
+    const { date, turfId } = req.query;
+    // If turfId is specified, validate it belongs to this owner
+    const allowedIds = turfId
+      ? turfIds.filter((id: any) => id.toString() === turfId)
+      : turfIds;
+    if (!allowedIds.length) { res.json([]); return; }
+    const filter: any = { turfId: { $in: allowedIds } };
     if (date) filter.date = date as string;
     const bookings = await Booking.find(filter).sort({ date: 1, startTime: 1 }).lean();
     const userIds = [...new Set(bookings.map((b: any) => b.userId?.toString()))];
@@ -155,7 +160,23 @@ router.get("/owner/payout-status", authenticate, requireRole("turf_owner", "admi
     if (!owner) { res.status(404).json({ error: "Owner not found" }); return; }
     const ownerTurfs = await Turf.find({ ownerId: req.user!.id }, "_id name").lean();
     const turfIds = ownerTurfs.map((t: any) => t._id);
-    const bookings = turfIds.length ? await Booking.find({ turfId: { $in: turfIds }, paymentStatus: "paid" }).lean() : [];
+    const { month, year, turfId } = req.query;
+    // Build filter — optional turf/date scoping
+    const bookingFilter: any = { paymentStatus: "paid" };
+    if (turfId) {
+      const validId = turfIds.find((id: any) => id.toString() === turfId);
+      bookingFilter.turfId = validId ?? null;
+    } else {
+      bookingFilter.turfId = { $in: turfIds };
+    }
+    if (month && year) {
+      const y = String(year); const m = String(month).padStart(2, "0");
+      bookingFilter.date = { $gte: `${y}-${m}-01`, $lte: `${y}-${m}-31` };
+    } else if (year) {
+      const y = String(year);
+      bookingFilter.date = { $gte: `${y}-01-01`, $lte: `${y}-12-31` };
+    }
+    const bookings = turfIds.length ? await Booking.find(bookingFilter).lean() : [];
     const grossRevenue = (bookings as any[]).reduce((s: number, b: any) => s + (b.totalPrice || 0), 0);
     const commissionRate = owner.commissionRate ?? 20;
     const adminCommission = Math.round(grossRevenue * commissionRate / 100);

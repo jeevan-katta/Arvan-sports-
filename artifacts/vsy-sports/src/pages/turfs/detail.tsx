@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { format, isToday } from "date-fns";
 import { useGetTurf, useGetTurfSlots, useCreateBooking, getGetTurfSlotsQueryKey } from "@workspace/api-client-react";
@@ -9,12 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useSlotUpdates } from "@/hooks/use-slot-updates";
-import { MapPin, Star, ChevronLeft, Calendar as CalendarIcon, Info, Users, Car, Coffee, Shield, Check, Minus, Plus, Clock, ExternalLink, Wifi } from "lucide-react";
+import { MapPin, Star, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Info, Users, Car, Coffee, Shield, Check, Minus, Plus, Clock, ExternalLink, Wifi, Images } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-/** Convert "HH:MM" 24hr string to "h AM/PM" or "h:MM AM/PM" */
 function to12hr(time: string): string {
   const [hStr, mStr] = time.split(":");
   const h = parseInt(hStr, 10);
@@ -24,13 +23,183 @@ function to12hr(time: string): string {
   return m === 0 ? `${h12} ${period}` : `${h12}:${mStr} ${period}`;
 }
 
-/** Returns true if a slot's start time (HH:MM) is in the past relative to now */
 function isPastSlot(startTime: string, date: Date): boolean {
   if (!isToday(date)) return false;
   const now = new Date();
   const [hStr, mStr] = startTime.split(":");
   return parseInt(hStr, 10) < now.getHours() ||
     (parseInt(hStr, 10) === now.getHours() && parseInt(mStr, 10) <= now.getMinutes());
+}
+
+// ── Photo Gallery ────────────────────────────────────────────────────────────
+function PhotoGallery({ images, turfName }: { images: string[]; turfName: string }) {
+  const [current, setCurrent] = useState(0);
+  const [lightbox, setLightbox] = useState(false);
+  const touchStartX = useRef<number | null>(null);
+
+  const prev = () => setCurrent(c => (c - 1 + images.length) % images.length);
+  const next = () => setCurrent(c => (c + 1) % images.length);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(dx) > 40) dx < 0 ? next() : prev();
+    touchStartX.current = null;
+  };
+
+  if (!images.length) {
+    return (
+      <div className="h-64 sm:h-80 bg-muted flex items-center justify-center">
+        <MapPin className="h-12 w-12 text-muted-foreground/50" />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Main gallery */}
+      <div
+        className="relative h-64 sm:h-80 bg-black overflow-hidden select-none"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
+        {/* Images */}
+        {images.map((src, i) => (
+          <img
+            key={i}
+            src={src}
+            alt={`${turfName} photo ${i + 1}`}
+            referrerPolicy="no-referrer"
+            onClick={() => setLightbox(true)}
+            className={cn(
+              "absolute inset-0 w-full h-full object-cover transition-opacity duration-300 cursor-pointer",
+              i === current ? "opacity-100" : "opacity-0 pointer-events-none"
+            )}
+            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
+        ))}
+
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+
+        {/* Prev / Next arrows — only if multiple images */}
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={e => { e.stopPropagation(); prev(); }}
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors z-10"
+            >
+              <ChevronLeft className="h-4 w-4 text-white" />
+            </button>
+            <button
+              onClick={e => { e.stopPropagation(); next(); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors z-10"
+            >
+              <ChevronRight className="h-4 w-4 text-white" />
+            </button>
+          </>
+        )}
+
+        {/* Photo count badge */}
+        {images.length > 1 && (
+          <div className="absolute top-4 right-4 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[11px] font-bold px-2.5 py-1 rounded-full z-10">
+            <Images className="h-3 w-3" />
+            {current + 1}/{images.length}
+          </div>
+        )}
+
+        {/* Dot indicators */}
+        {images.length > 1 && images.length <= 10 && (
+          <div className="absolute bottom-16 left-0 right-0 flex justify-center gap-1.5 z-10">
+            {images.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrent(i)}
+                className={cn(
+                  "rounded-full transition-all duration-200",
+                  i === current ? "bg-white w-4 h-1.5" : "bg-white/50 w-1.5 h-1.5"
+                )}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Thumbnail strip — only if 2+ images */}
+      {images.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto px-4 py-2 bg-black no-scrollbar">
+          {images.map((src, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrent(i)}
+              className={cn(
+                "flex-shrink-0 h-12 w-16 rounded-lg overflow-hidden border-2 transition-all",
+                i === current ? "border-primary" : "border-transparent opacity-60 hover:opacity-100"
+              )}
+            >
+              <img
+                src={src}
+                alt={`thumb ${i + 1}`}
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover"
+              />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center"
+          onClick={() => setLightbox(false)}
+          onTouchStart={onTouchStart}
+          onTouchEnd={e => {
+            if (touchStartX.current === null) return;
+            const dx = e.changedTouches[0].clientX - touchStartX.current;
+            if (Math.abs(dx) > 40) { dx < 0 ? next() : prev(); e.stopPropagation(); }
+            touchStartX.current = null;
+          }}
+        >
+          <button
+            className="absolute top-4 right-4 h-9 w-9 rounded-full bg-white/10 flex items-center justify-center text-white text-xl font-bold z-10"
+            onClick={() => setLightbox(false)}
+          >
+            ×
+          </button>
+          {images.length > 1 && (
+            <>
+              <button
+                onClick={e => { e.stopPropagation(); prev(); }}
+                className="absolute left-3 h-10 w-10 rounded-full bg-white/10 flex items-center justify-center z-10"
+              >
+                <ChevronLeft className="h-5 w-5 text-white" />
+              </button>
+              <button
+                onClick={e => { e.stopPropagation(); next(); }}
+                className="absolute right-3 h-10 w-10 rounded-full bg-white/10 flex items-center justify-center z-10"
+              >
+                <ChevronRight className="h-5 w-5 text-white" />
+              </button>
+            </>
+          )}
+          <img
+            src={images[current]}
+            alt={`${turfName} ${current + 1}`}
+            referrerPolicy="no-referrer"
+            className="max-h-[85vh] max-w-[95vw] object-contain rounded-lg"
+            onClick={e => e.stopPropagation()}
+          />
+          <p className="absolute bottom-6 left-0 right-0 text-center text-white/60 text-sm">
+            {current + 1} / {images.length}
+          </p>
+        </div>
+      )}
+    </>
+  );
 }
 
 export default function TurfDetail() {
@@ -60,7 +229,6 @@ export default function TurfDetail() {
     setTimeout(() => setRecentlyTaken([]), 4000);
   });
 
-  /** Check if selected slots form a consecutive chain (no gaps) */
   const isConsecutive = useMemo(() => {
     if (selectedSlotIds.length <= 1) return true;
     if (!slots) return false;
@@ -86,7 +254,6 @@ export default function TurfDetail() {
       toast({ variant: "destructive", title: "Non-consecutive slots", description: "Please select slots that are back-to-back, or book them separately." });
       return;
     }
-
     try {
       const booking = await createBooking.mutateAsync({
         data: { turfId: turfId as any, slotIds: selectedSlotIds, date: format(selectedDate, "yyyy-MM-dd"), playerCount } as any
@@ -110,39 +277,39 @@ export default function TurfDetail() {
   if (isLoadingTurf) return <div className="h-screen flex items-center justify-center">Loading...</div>;
   if (!turf) return <div className="h-screen flex items-center justify-center">Turf not found</div>;
 
+  const images: string[] = (turf as any).images || [];
   const selectedSlots = (slots || []).filter(s => selectedSlotIds.includes(s.id as string)).sort((a, b) => a.startTime.localeCompare(b.startTime));
   const totalPrice = selectedSlotIds.length * (turf.pricePerHour || 0);
   const advancePrice = Math.round(totalPrice * 0.3);
 
   return (
     <div className="flex flex-col min-h-screen bg-background pb-36">
-      {/* Hero */}
-      <div className="relative h-64 sm:h-80 bg-muted w-full">
-        <Button variant="ghost" size="icon" className="absolute top-4 left-4 z-10 bg-background/50 backdrop-blur-md hover:bg-background/80 rounded-full" onClick={() => window.history.back()}>
+      {/* Back button */}
+      <div className="relative">
+        <Button
+          variant="ghost" size="icon"
+          className="absolute top-4 left-4 z-20 bg-background/50 backdrop-blur-md hover:bg-background/80 rounded-full"
+          onClick={() => window.history.back()}
+        >
           <ChevronLeft className="h-6 w-6" />
         </Button>
-        {turf.images?.[0] ? (
-          <img
-            src={turf.images[0]}
-            alt={turf.name}
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-secondary/20">
-            <MapPin className="h-12 w-12 text-muted-foreground/50" />
-          </div>
-        )}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-16">
+
+        {/* Photo Gallery */}
+        <PhotoGallery images={images} turfName={turf.name} />
+
+        {/* Turf info overlay on last image */}
+        <div className={cn(
+          "absolute left-0 right-0 p-4 pt-16 pointer-events-none",
+          images.length > 1 ? "bottom-14" : "bottom-0",
+          "bg-gradient-to-t from-black/80 to-transparent"
+        )}>
           <div className="flex justify-between items-end">
-            <div className="text-white">
+            <div className="text-white pointer-events-auto">
               <h1 className="text-2xl font-bold">{turf.name}</h1>
               {(turf as any).latitude && (turf as any).longitude ? (
                 <a
                   href={`https://maps.google.com/?q=${(turf as any).latitude},${(turf as any).longitude}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  target="_blank" rel="noopener noreferrer"
                   className="text-sm opacity-90 flex items-center mt-1 hover:opacity-100 underline-offset-2 hover:underline"
                   onClick={e => e.stopPropagation()}
                 >
@@ -152,8 +319,7 @@ export default function TurfDetail() {
               ) : (turf as any).address ? (
                 <a
                   href={`https://maps.google.com/?q=${encodeURIComponent(((turf as any).address || turf.area || "") + " " + (turf.area || ""))}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  target="_blank" rel="noopener noreferrer"
                   className="text-sm opacity-90 flex items-center mt-1 hover:opacity-100 underline-offset-2 hover:underline"
                   onClick={e => e.stopPropagation()}
                 >
@@ -164,7 +330,7 @@ export default function TurfDetail() {
                 <p className="text-sm opacity-90 flex items-center mt-1"><MapPin className="h-3 w-3 mr-1" />{turf.area}</p>
               )}
             </div>
-            <div className="bg-yellow-500 text-yellow-950 px-2 py-1 rounded-lg flex items-center font-bold text-sm">
+            <div className="bg-yellow-500 text-yellow-950 px-2 py-1 rounded-lg flex items-center font-bold text-sm pointer-events-auto">
               <Star className="h-4 w-4 fill-current mr-1" />{turf.rating || "New"}
             </div>
           </div>
@@ -218,12 +384,16 @@ export default function TurfDetail() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="end">
-                <Calendar mode="single" selected={selectedDate} onSelect={d => { if (d) { setSelectedDate(d); setSelectedSlotIds([]); } }} disabled={d => d < new Date(new Date().setHours(0,0,0,0))} initialFocus />
+                <Calendar
+                  mode="single" selected={selectedDate}
+                  onSelect={d => { if (d) { setSelectedDate(d); setSelectedSlotIds([]); } }}
+                  disabled={d => d < new Date(new Date().setHours(0,0,0,0))}
+                  initialFocus
+                />
               </PopoverContent>
             </Popover>
           </div>
 
-          {/* Non-consecutive warning */}
           {selectedSlotIds.length > 1 && !isConsecutive && (
             <div className="mb-3 p-3 bg-destructive/10 border border-destructive/30 rounded-xl flex items-start gap-2">
               <Info className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
@@ -231,7 +401,6 @@ export default function TurfDetail() {
             </div>
           )}
 
-          {/* Selection Summary */}
           {selectedSlotIds.length > 0 && (
             <div className={cn("mb-3 p-3 rounded-xl border flex items-center justify-between", isConsecutive ? "bg-primary/5 border-primary/20" : "bg-destructive/5 border-destructive/20")}>
               <div>
@@ -251,7 +420,9 @@ export default function TurfDetail() {
           )}
 
           {isLoadingSlots ? (
-            <div className="grid grid-cols-3 gap-2">{[1,2,3,4,5,6].map(i => <div key={i} className="h-14 bg-muted animate-pulse rounded-lg" />)}</div>
+            <div className="grid grid-cols-3 gap-2">
+              {[1,2,3,4,5,6].map(i => <div key={i} className="h-14 bg-muted animate-pulse rounded-lg" />)}
+            </div>
           ) : slots && slots.length > 0 ? (
             <div className="grid grid-cols-3 gap-2">
               {slots
@@ -260,7 +431,6 @@ export default function TurfDetail() {
                   const isSelected = selectedSlotIds.includes(slot.id);
                   const justTaken = recentlyTaken.includes(slot.id);
                   const isReserved = !!(slot as any).isReserved;
-                  const isConfirmedBooked = !!(slot as any).isConfirmedBooked;
                   const isUnavailable = !!slot.isBooked;
                   return (
                     <button
@@ -282,9 +452,7 @@ export default function TurfDetail() {
                       <span className="text-sm font-bold">{to12hr(slot.startTime)}</span>
                       <span className={cn(
                         "text-[10px] mt-0.5",
-                        isSelected ? "opacity-80"
-                          : justTaken ? "text-orange-600 font-bold"
-                          : "text-muted-foreground"
+                        isSelected ? "opacity-80" : justTaken ? "text-orange-600 font-bold" : "text-muted-foreground"
                       )}>
                         {justTaken ? "Just taken!" : `₹${slot.price || turf.pricePerHour}`}
                       </span>
@@ -317,9 +485,13 @@ export default function TurfDetail() {
               <p className="text-xs text-muted-foreground">How many players will be playing?</p>
             </div>
             <div className="flex items-center gap-3">
-              <Button variant="outline" size="icon" className="h-9 w-9 rounded-full border-2" onClick={() => setPlayerCount(c => Math.max(2, c-1))} disabled={playerCount <= 2}><Minus className="h-4 w-4" /></Button>
+              <Button variant="outline" size="icon" className="h-9 w-9 rounded-full border-2" onClick={() => setPlayerCount(c => Math.max(2, c-1))} disabled={playerCount <= 2}>
+                <Minus className="h-4 w-4" />
+              </Button>
               <span className="w-8 text-center font-bold text-lg">{playerCount}</span>
-              <Button variant="outline" size="icon" className="h-9 w-9 rounded-full border-2" onClick={() => setPlayerCount(c => Math.min(22, c+1))} disabled={playerCount >= 22}><Plus className="h-4 w-4" /></Button>
+              <Button variant="outline" size="icon" className="h-9 w-9 rounded-full border-2" onClick={() => setPlayerCount(c => Math.min(22, c+1))} disabled={playerCount >= 22}>
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
@@ -327,14 +499,18 @@ export default function TurfDetail() {
         {/* Reviews */}
         {turf.reviews && turf.reviews.length > 0 && (
           <div>
-            <h3 className="font-bold mb-3 flex items-center justify-between">Reviews <span className="text-sm font-normal text-muted-foreground">({turf.reviewCount} total)</span></h3>
+            <h3 className="font-bold mb-3 flex items-center justify-between">
+              Reviews <span className="text-sm font-normal text-muted-foreground">({turf.reviewCount} total)</span>
+            </h3>
             <div className="space-y-3">
               {turf.reviews.slice(0, 3).map(review => (
                 <Card key={review.id} className="p-3 bg-muted/30 border-none shadow-none">
                   <div className="flex justify-between items-start mb-1">
                     <span className="font-semibold text-sm">{review.userName || "User"}</span>
                     <div className="flex text-yellow-500">
-                      {Array.from({length: 5}).map((_, i) => <Star key={i} className={`h-3 w-3 ${i < review.rating ? "fill-current" : "opacity-20"}`} />)}
+                      {Array.from({length: 5}).map((_, i) => (
+                        <Star key={i} className={`h-3 w-3 ${i < review.rating ? "fill-current" : "opacity-20"}`} />
+                      ))}
                     </div>
                   </div>
                   {review.comment && <p className="text-sm text-muted-foreground">{review.comment}</p>}
@@ -345,7 +521,7 @@ export default function TurfDetail() {
         )}
       </div>
 
-      {/* Fixed CTA — above bottom nav */}
+      {/* Fixed CTA */}
       <div className="fixed bottom-16 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-border z-40 max-w-md mx-auto">
         <div className="flex items-center gap-4">
           <div className="flex-1 min-w-0">

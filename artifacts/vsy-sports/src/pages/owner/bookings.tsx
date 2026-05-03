@@ -1,13 +1,20 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, User, Clock, IndianRupee, ChevronLeft, ChevronRight, PlayCircle, Hourglass, CheckCircle2 } from "lucide-react";
+import { CalendarDays, User, Clock, IndianRupee, ChevronLeft, ChevronRight, PlayCircle, Hourglass, CheckCircle2, Building2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format, parseISO, addDays, subDays } from "date-fns";
 
+interface Turf {
+  id: string;
+  name: string;
+  area: string;
+}
+
 interface Booking {
   id: string;
+  turfId: string;
   turfName: string;
   turfArea: string;
   userName: string;
@@ -26,10 +33,9 @@ function timeToMinutes(t: string): number {
   return h * 60 + m;
 }
 
-function getSlotStatus(booking: Booking, now: Date, selectedDate: Date): "past" | "running" | "upcoming" | "other" {
+function getSlotStatus(booking: Booking, now: Date): "past" | "running" | "upcoming" | "other" {
   const today = format(now, "yyyy-MM-dd");
-  const bookingDate = booking.date;
-  if (bookingDate !== today) return "other";
+  if (booking.date !== today) return "other";
   const nowMins = now.getHours() * 60 + now.getMinutes();
   const startMins = timeToMinutes(booking.startTime);
   const endMins = timeToMinutes(booking.endTime);
@@ -52,8 +58,17 @@ export default function OwnerBookings() {
 
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [showAll, setShowAll] = useState(false);
+  const [selectedTurfId, setSelectedTurfId] = useState<string>("");
 
   const isToday = selectedDate === todayStr;
+
+  // Fetch owner's turfs for the filter
+  const { data: turfs = [] } = useQuery<Turf[]>({
+    queryKey: ["owner-turfs-list"],
+    queryFn: () =>
+      fetch("/api/owner/turfs", { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+    enabled: !!token,
+  });
 
   const prevDay = () => setSelectedDate(d => format(subDays(parseISO(d), 1), "yyyy-MM-dd"));
   const nextDay = () => {
@@ -62,21 +77,22 @@ export default function OwnerBookings() {
   };
   const goToday = () => { setSelectedDate(todayStr); setShowAll(false); };
 
+  const queryParams = new URLSearchParams({ date: selectedDate });
+  if (selectedTurfId) queryParams.set("turfId", selectedTurfId);
+
   const { data: bookings = [], isLoading } = useQuery<Booking[]>({
-    queryKey: ["owner-bookings", selectedDate],
+    queryKey: ["owner-bookings", selectedDate, selectedTurfId],
     queryFn: () =>
-      fetch(`/api/owner/bookings?date=${selectedDate}`, {
+      fetch(`/api/owner/bookings?${queryParams.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       }).then(r => r.json()),
     enabled: !!token,
   });
 
   const now2 = new Date();
-
-  // For today: split into running/upcoming/past; default = running + upcoming only
   const annotated = bookings.map(b => ({
     ...b,
-    _slot: getSlotStatus(b, now2, parseISO(selectedDate)),
+    _slot: getSlotStatus(b, now2),
   }));
 
   let displayed = annotated;
@@ -84,7 +100,6 @@ export default function OwnerBookings() {
     displayed = annotated.filter(b => b._slot === "running" || b._slot === "upcoming");
   }
 
-  // Sort: running first, then upcoming by time, then past
   displayed = [...displayed].sort((a, b) => {
     const order = { running: 0, upcoming: 1, past: 2, other: 3 };
     const oa = order[a._slot]; const ob = order[b._slot];
@@ -93,6 +108,7 @@ export default function OwnerBookings() {
   });
 
   const pastCount = isToday ? annotated.filter(b => b._slot === "past").length : 0;
+  const showTurfFilter = turfs.length > 1;
 
   if (isLoading) return <div className="p-6 text-center text-muted-foreground">Loading bookings...</div>;
 
@@ -100,8 +116,42 @@ export default function OwnerBookings() {
     <div className="p-4 space-y-4 pb-8">
       <div className="pt-2">
         <h2 className="text-xl font-display font-bold">Bookings</h2>
-        <p className="text-muted-foreground text-sm">{bookings.length} booking{bookings.length !== 1 ? "s" : ""} on this day</p>
+        <p className="text-muted-foreground text-sm">
+          {bookings.length} booking{bookings.length !== 1 ? "s" : ""} on this day
+          {selectedTurfId && turfs.length > 0 && (
+            <span> · {turfs.find(t => t.id === selectedTurfId)?.name}</span>
+          )}
+        </p>
       </div>
+
+      {/* Turf filter — only shown when owner has 2+ turfs */}
+      {showTurfFilter && (
+        <div className="flex gap-2 overflow-x-auto pb-0.5 no-scrollbar">
+          <button
+            onClick={() => setSelectedTurfId("")}
+            className={`flex-shrink-0 flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border font-bold transition-all whitespace-nowrap ${
+              !selectedTurfId
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-muted text-muted-foreground border-border"
+            }`}
+          >
+            <Building2 className="h-3 w-3" /> All Turfs
+          </button>
+          {turfs.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setSelectedTurfId(t.id)}
+              className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-xl border font-bold transition-all whitespace-nowrap ${
+                selectedTurfId === t.id
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted text-muted-foreground border-border"
+              }`}
+            >
+              {t.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Date navigator */}
       <div className="flex items-center justify-between bg-muted/60 rounded-2xl p-3">
@@ -124,7 +174,7 @@ export default function OwnerBookings() {
         </Button>
       </div>
 
-      {/* Today quick jump */}
+      {/* Jump to today */}
       {!isToday && (
         <Button variant="outline" size="sm" className="w-full h-8 text-xs" onClick={goToday}>
           Jump to Today
@@ -158,9 +208,7 @@ export default function OwnerBookings() {
         <div className="flex flex-col items-center justify-center py-14 text-center">
           <CalendarDays className="h-12 w-12 text-muted-foreground/30 mb-3" />
           <p className="font-bold text-muted-foreground">
-            {isToday && !showAll
-              ? "No upcoming bookings for today"
-              : "No bookings on this day"}
+            {isToday && !showAll ? "No upcoming bookings for today" : "No bookings on this day"}
           </p>
           {isToday && !showAll && pastCount > 0 && (
             <button onClick={() => setShowAll(true)} className="text-xs text-primary mt-2 underline">
@@ -215,9 +263,11 @@ export default function OwnerBookings() {
             );
           })}
 
-          {/* Show-all prompt when filtered */}
           {isToday && !showAll && pastCount > 0 && (
-            <button onClick={() => setShowAll(true)} className="w-full text-xs text-muted-foreground py-2 border border-dashed border-border rounded-xl hover:border-primary hover:text-primary transition-colors">
+            <button
+              onClick={() => setShowAll(true)}
+              className="w-full text-xs text-muted-foreground py-2 border border-dashed border-border rounded-xl hover:border-primary hover:text-primary transition-colors"
+            >
               + {pastCount} completed booking{pastCount > 1 ? "s" : ""} — tap to show
             </button>
           )}

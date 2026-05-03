@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   Wallet, CheckCircle2, Clock, AlertCircle, ArrowUpRight,
   History, Landmark, RefreshCw, ChevronDown, ChevronUp,
-  IndianRupee, CreditCard, Phone, Mail,
+  IndianRupee, CreditCard, SlidersHorizontal, X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -13,20 +13,57 @@ import { format } from "date-fns";
 const fmtINR = (n: number | undefined | null) =>
   `₹${(n || 0).toLocaleString("en-IN")}`;
 
+const MONTHS = [
+  "January","February","March","April","May","June",
+  "July","August","September","October","November","December",
+];
+
+const currentYear = new Date().getFullYear();
+const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
 export default function OwnerPayout() {
   const { token } = useAuth();
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Filters
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const [selectedYear, setSelectedYear]   = useState<string>("");
+  const [selectedTurf, setSelectedTurf]   = useState<string>("");
+
+  const hasFilter = !!(selectedMonth || selectedYear || selectedTurf);
+
+  // Fetch owner turfs for the turf filter
+  const { data: turfs = [] } = useQuery<any[]>({
+    queryKey: ["owner-turfs-list"],
+    queryFn: () =>
+      fetch("/api/owner/turfs", { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+    enabled: !!token,
+  });
+
+  // Build query string
+  const params = new URLSearchParams();
+  if (selectedMonth) params.set("month", selectedMonth);
+  if (selectedYear)  params.set("year",  selectedYear);
+  if (selectedTurf)  params.set("turfId", selectedTurf);
+  const qs = params.toString() ? `?${params.toString()}` : "";
 
   const { data: payout, isLoading } = useQuery<any>({
-    queryKey: ["owner-payout-status"],
+    queryKey: ["owner-payout-status", selectedMonth, selectedYear, selectedTurf],
     queryFn: async () => {
-      const r = await fetch("/api/owner/payout-status", {
+      const r = await fetch(`/api/owner/payout-status${qs}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       return r.json();
     },
     enabled: !!token,
   });
+
+  const clearFilters = () => {
+    setSelectedMonth("");
+    setSelectedYear("");
+    setSelectedTurf("");
+  };
 
   if (isLoading) {
     return (
@@ -40,26 +77,132 @@ export default function OwnerPayout() {
 
   const settled =
     payout?.ownerEarnings > 0
-      ? Math.min(
-          100,
-          Math.round((payout.payoutSent / payout.ownerEarnings) * 100)
-        )
+      ? Math.min(100, Math.round((payout.payoutSent / payout.ownerEarnings) * 100))
       : 0;
   const ownerPct = 100 - (payout?.commissionRate ?? 20);
   const hasBankDetails =
-    payout?.bankDetails &&
-    Object.values(payout.bankDetails).some(Boolean);
+    payout?.bankDetails && Object.values(payout.bankDetails).some(Boolean);
 
   return (
     <div className="p-4 space-y-5 pb-10">
-      <div className="pt-2">
-        <h2 className="text-xl font-display font-bold flex items-center gap-2">
-          <Wallet className="h-5 w-5 text-primary" /> Payout Dashboard
-        </h2>
-        <p className="text-muted-foreground text-sm mt-0.5">
-          Your earnings, settlement status &amp; payment history
-        </p>
+      {/* Header */}
+      <div className="pt-2 flex items-start justify-between">
+        <div>
+          <h2 className="text-xl font-display font-bold flex items-center gap-2">
+            <Wallet className="h-5 w-5 text-primary" /> Payout Dashboard
+          </h2>
+          <p className="text-muted-foreground text-sm mt-0.5">
+            {hasFilter ? "Filtered view · earnings & revenue data" : "Your earnings, settlement status & payment history"}
+          </p>
+        </div>
+        <button
+          onClick={() => setFiltersOpen(v => !v)}
+          className={cn(
+            "flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border transition-all",
+            filtersOpen || hasFilter
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-muted text-muted-foreground border-border hover:border-primary hover:text-primary"
+          )}
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          Filters
+          {hasFilter && (
+            <span className="ml-0.5 bg-white/20 text-white text-[10px] font-black px-1.5 rounded-full">
+              {[selectedMonth, selectedYear, selectedTurf].filter(Boolean).length}
+            </span>
+          )}
+        </button>
       </div>
+
+      {/* Filter Panel */}
+      {filtersOpen && (
+        <Card className="p-4 border-none shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold">Filter Earnings</p>
+            {hasFilter && (
+              <button onClick={clearFilters} className="text-xs text-destructive flex items-center gap-1 font-medium">
+                <X className="h-3 w-3" /> Clear all
+              </button>
+            )}
+          </div>
+
+          {/* Turf filter — only show if owner has 2+ turfs */}
+          {turfs.length > 1 && (
+            <div>
+              <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wider">Turf</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setSelectedTurf("")}
+                  className={cn(
+                    "text-xs px-3 py-1.5 rounded-xl border font-bold transition-all",
+                    !selectedTurf
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted text-muted-foreground border-border"
+                  )}
+                >
+                  All Turfs
+                </button>
+                {turfs.map((t: any) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setSelectedTurf(t.id)}
+                    className={cn(
+                      "text-xs px-3 py-1.5 rounded-xl border font-bold transition-all",
+                      selectedTurf === t.id
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted text-muted-foreground border-border"
+                    )}
+                  >
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Month + Year selectors */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wider">Month</p>
+              <select
+                value={selectedMonth}
+                onChange={e => setSelectedMonth(e.target.value)}
+                className="w-full text-sm bg-muted rounded-xl px-3 py-2 border border-border font-medium appearance-none focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">All months</option>
+                {MONTHS.map((m, i) => (
+                  <option key={i} value={String(i + 1)}>{m}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wider">Year</p>
+              <select
+                value={selectedYear}
+                onChange={e => setSelectedYear(e.target.value)}
+                className="w-full text-sm bg-muted rounded-xl px-3 py-2 border border-border font-medium appearance-none focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">All years</option>
+                {YEARS.map(y => (
+                  <option key={y} value={String(y)}>{y}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Active filter summary */}
+          {hasFilter && (
+            <div className="bg-primary/5 border border-primary/20 rounded-xl px-3 py-2 text-xs text-primary font-medium">
+              Showing:{" "}
+              {[
+                selectedTurf ? turfs.find((t:any) => t.id === selectedTurf)?.name : null,
+                selectedMonth ? MONTHS[parseInt(selectedMonth) - 1] : null,
+                selectedYear || null,
+              ].filter(Boolean).join(" · ") || "All data"}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* ── Status Banner ── */}
       <div
@@ -93,6 +236,11 @@ export default function OwnerPayout() {
                 HELD
               </span>
             )}
+            {hasFilter && (
+              <span className="text-[9px] font-black bg-primary/15 text-primary border border-primary/30 px-2 py-0.5 rounded-full uppercase">
+                FILTERED
+              </span>
+            )}
           </div>
           <span className="text-xs text-muted-foreground capitalize flex items-center gap-1">
             <RefreshCw className="h-3 w-3" />
@@ -106,7 +254,6 @@ export default function OwnerPayout() {
           </p>
         )}
 
-        {/* Progress bar */}
         <div className="mt-3">
           <div className="flex justify-between text-xs mb-1.5">
             <span className="text-muted-foreground">{settled}% settled</span>
@@ -162,9 +309,7 @@ export default function OwnerPayout() {
             {fmtINR(payout?.pendingPayout)}
           </p>
           <p className="text-xs text-muted-foreground mt-1">Pending Payout</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">
-            Awaiting transfer
-          </p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Awaiting transfer</p>
         </Card>
 
         <Card className="p-4 border-none shadow-sm">
@@ -218,15 +363,10 @@ export default function OwnerPayout() {
             <div key={i}>
               <div className="flex justify-between text-xs mb-1">
                 <span className="text-muted-foreground">{row.label}</span>
-                <span className={cn("font-bold", row.textColor)}>
-                  {fmtINR(row.val)}
-                </span>
+                <span className={cn("font-bold", row.textColor)}>{fmtINR(row.val)}</span>
               </div>
               <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className={cn("h-full rounded-full", row.color)}
-                  style={{ width: `${row.pct}%` }}
-                />
+                <div className={cn("h-full rounded-full", row.color)} style={{ width: `${row.pct}%` }} />
               </div>
             </div>
           ))}
@@ -241,12 +381,8 @@ export default function OwnerPayout() {
         {!hasBankDetails ? (
           <div className="text-center py-4">
             <CreditCard className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-30" />
-            <p className="text-sm text-muted-foreground">
-              No bank details on file
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Contact admin to add your bank details
-            </p>
+            <p className="text-sm text-muted-foreground">No bank details on file</p>
+            <p className="text-xs text-muted-foreground mt-1">Contact admin to add your bank details</p>
           </div>
         ) : (
           <div className="space-y-2.5 text-sm">
@@ -268,9 +404,7 @@ export default function OwnerPayout() {
               <div className="flex justify-between items-center border-t border-border pt-2">
                 <span className="text-muted-foreground">Account No.</span>
                 <span className="font-mono font-medium">
-                  {"●".repeat(
-                    Math.max(0, payout.bankDetails.accountNumber.length - 4)
-                  )}
+                  {"●".repeat(Math.max(0, payout.bankDetails.accountNumber.length - 4))}
                   {payout.bankDetails.accountNumber.slice(-4)}
                 </span>
               </div>
@@ -278,9 +412,7 @@ export default function OwnerPayout() {
             {payout.bankDetails.ifscCode && (
               <div className="flex justify-between items-center border-t border-border pt-2">
                 <span className="text-muted-foreground">IFSC Code</span>
-                <span className="font-mono font-medium">
-                  {payout.bankDetails.ifscCode}
-                </span>
+                <span className="font-mono font-medium">{payout.bankDetails.ifscCode}</span>
               </div>
             )}
             {payout.bankDetails.upiId && (
@@ -293,9 +425,7 @@ export default function OwnerPayout() {
         )}
         <p className="text-[10px] text-muted-foreground mt-3 pt-3 border-t border-border">
           Payouts are processed per your{" "}
-          <span className="font-bold capitalize">
-            {payout?.payoutSchedule ?? "manual"}
-          </span>{" "}
+          <span className="font-bold capitalize">{payout?.payoutSchedule ?? "manual"}</span>{" "}
           schedule. Contact admin to update bank details.
         </p>
       </Card>
@@ -303,7 +433,7 @@ export default function OwnerPayout() {
       {/* ── Payout History ── */}
       <div>
         <button
-          onClick={() => setHistoryOpen((v) => !v)}
+          onClick={() => setHistoryOpen(v => !v)}
           className="w-full flex items-center justify-between font-bold text-sm py-1 mb-3"
         >
           <span className="flex items-center gap-2">
@@ -325,54 +455,35 @@ export default function OwnerPayout() {
             {!payout?.payoutHistory?.length ? (
               <Card className="p-6 border-none shadow-sm text-center">
                 <Wallet className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-20" />
-                <p className="font-bold text-muted-foreground text-sm">
-                  No payouts received yet
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Payments will appear here once processed
-                </p>
+                <p className="font-bold text-muted-foreground text-sm">No payouts received yet</p>
+                <p className="text-xs text-muted-foreground mt-1">Payments will appear here once processed</p>
               </Card>
             ) : (
               <>
-                {[...payout.payoutHistory]
-                  .reverse()
-                  .map((p: any, i: number) => (
-                    <Card key={i} className="p-4 border-none shadow-sm">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                            <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                          </div>
-                          <div>
-                            <p className="font-black text-emerald-600 dark:text-emerald-400">
-                              {fmtINR(p.amount)}
-                            </p>
-                            <p className="text-xs text-muted-foreground capitalize mt-0.5">
-                              {p.method?.replace("_", " ")} ·{" "}
-                              {p.date
-                                ? format(new Date(p.date), "dd MMM yyyy")
-                                : "—"}
-                            </p>
-                            {p.note && (
-                              <p className="text-xs text-muted-foreground italic mt-0.5">
-                                "{p.note}"
-                              </p>
-                            )}
-                          </div>
+                {[...payout.payoutHistory].reverse().map((p: any, i: number) => (
+                  <Card key={i} className="p-4 border-none shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                          <CheckCircle2 className="h-5 w-5 text-emerald-500" />
                         </div>
-                        <ArrowUpRight className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                        <div>
+                          <p className="font-black text-emerald-600 dark:text-emerald-400">{fmtINR(p.amount)}</p>
+                          <p className="text-xs text-muted-foreground capitalize mt-0.5">
+                            {p.method?.replace("_", " ")} ·{" "}
+                            {p.date ? format(new Date(p.date), "dd MMM yyyy") : "—"}
+                          </p>
+                          {p.note && <p className="text-xs text-muted-foreground italic mt-0.5">"{p.note}"</p>}
+                        </div>
                       </div>
-                    </Card>
-                  ))}
-
+                      <ArrowUpRight className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                    </div>
+                  </Card>
+                ))}
                 <Card className="p-3 border-none shadow-sm bg-muted/50">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      Total received
-                    </span>
-                    <span className="font-black text-primary">
-                      {fmtINR(payout.payoutSent)}
-                    </span>
+                    <span className="text-muted-foreground">Total received</span>
+                    <span className="font-black text-primary">{fmtINR(payout.payoutSent)}</span>
                   </div>
                 </Card>
               </>
@@ -380,16 +491,11 @@ export default function OwnerPayout() {
           </div>
         )}
 
-        {/* Auto-expand hint when no history */}
         {!historyOpen && !payout?.payoutHistory?.length && (
           <Card className="p-5 border-none shadow-sm text-center">
             <Wallet className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-20" />
-            <p className="font-bold text-muted-foreground text-sm">
-              No payouts yet
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Your payment history will appear here
-            </p>
+            <p className="font-bold text-muted-foreground text-sm">No payouts yet</p>
+            <p className="text-xs text-muted-foreground mt-1">Your payment history will appear here</p>
           </Card>
         )}
       </div>
