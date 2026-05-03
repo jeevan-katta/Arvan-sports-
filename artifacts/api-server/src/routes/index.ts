@@ -9,6 +9,7 @@ import shopRouter from "./shop";
 import adminRouter from "./admin";
 import ownerRouter from "./owner";
 import liveScoresRouter from "./live-scores";
+import uploadRouter from "./upload";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(shopRouter);
 router.use(adminRouter);
 router.use(ownerRouter);
 router.use(liveScoresRouter);
+router.use(uploadRouter);
 
 export default router;

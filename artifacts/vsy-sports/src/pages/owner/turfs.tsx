@@ -56,15 +56,15 @@ const PRICING_SLOTS = [
   { key: "weekendNight", label: "Weekend Night",  sub: "Sat – Sun · 6 PM – 6 AM", icon: Moon, day: false },
 ] as const;
 
-// Upload a file to telegra.ph (free CDN, no auth needed) → returns public URL
-async function uploadToTelegraph(file: File): Promise<string> {
+// Upload a file via our backend proxy → telegra.ph CDN (avoids browser CORS restrictions)
+async function uploadImage(file: File): Promise<string> {
   const form = new FormData();
-  form.append("file", file, file.name);
-  const res = await fetch("https://telegra.ph/upload", { method: "POST", body: form });
+  form.append("file", file);
+  const res = await fetch("/api/upload/image", { method: "POST", body: form });
   if (!res.ok) throw new Error("Upload failed");
   const data = await res.json();
-  if (Array.isArray(data) && data[0]?.src) return `https://telegra.ph${data[0].src}`;
-  throw new Error("Invalid response from image host");
+  if (data.url) return data.url;
+  throw new Error(data.error || "Upload failed");
 }
 
 function apiFetch(path: string, token: string, method = "GET", body?: object) {
@@ -116,7 +116,7 @@ function ImageSection({
     const uploaded: string[] = [];
     for (const file of toUpload) {
       try {
-        const url = await uploadToTelegraph(file);
+        const url = await uploadImage(file);
         uploaded.push(url);
       } catch {
         setUploadError("One or more images failed to upload. Try again.");
