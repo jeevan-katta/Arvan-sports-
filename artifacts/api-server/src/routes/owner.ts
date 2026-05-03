@@ -134,7 +134,7 @@ router.get("/owner/bookings", authenticate, requireRole("turf_owner", "admin"), 
 
 router.post("/owner/bookings/:id/collect-cash", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
   try {
-    const bookingId = req.params.id;
+    const bookingId = String(req.params.id);
     if (!Types.ObjectId.isValid(bookingId)) { res.status(404).json({ error: "Booking not found" }); return; }
 
     const ownerTurfs = await Turf.find({ ownerId: req.user!.id }, "_id").lean();
@@ -229,7 +229,7 @@ router.get("/owner/payout-status", authenticate, requireRole("turf_owner", "admi
     // Build filter — optional turf/date scoping
     const bookingFilter: any = { paymentStatus: { $in: ["paid", "cash_collected"] } };
     if (turfId) {
-      const validId = turfIds.find((id: any) => id.toString() === turfId);
+      const validId = turfIds.find((id: any) => id.toString() === String(turfId));
       bookingFilter.turfId = validId ?? null;
     } else {
       bookingFilter.turfId = { $in: turfIds };
@@ -480,7 +480,7 @@ router.post("/owner/events", authenticate, requireRole("turf_owner", "admin"), a
 
 router.put("/owner/events/:id", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
   try {
-    if (!Types.ObjectId.isValid(req.params.id)) { res.status(404).json({ error: "Not found" }); return; }
+    if (!Types.ObjectId.isValid(String(req.params.id))) { res.status(404).json({ error: "Not found" }); return; }
     const existing = await Event.findOne({ _id: req.params.id, createdBy: req.user!.id }).lean();
     if (!existing && req.user!.role !== "admin") { res.status(403).json({ error: "Not your event" }); return; }
     const allowed = ["title","description","date","time","venue","area","prize","entryFee","maxParticipants","status","type","maintenanceStartTime","maintenanceEndTime","turfName","image"];
@@ -494,7 +494,7 @@ router.put("/owner/events/:id", authenticate, requireRole("turf_owner", "admin")
 
 router.delete("/owner/events/:id", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
   try {
-    if (!Types.ObjectId.isValid(req.params.id)) { res.status(404).json({ error: "Not found" }); return; }
+    if (!Types.ObjectId.isValid(String(req.params.id))) { res.status(404).json({ error: "Not found" }); return; }
     const existing = await Event.findOne({ _id: req.params.id, createdBy: req.user!.id }).lean();
     if (!existing && req.user!.role !== "admin") { res.status(403).json({ error: "Not your event" }); return; }
     await Event.findByIdAndDelete(req.params.id);
@@ -505,7 +505,7 @@ router.delete("/owner/events/:id", authenticate, requireRole("turf_owner", "admi
 
 router.get("/owner/events/:id/applications", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
   try {
-    if (!Types.ObjectId.isValid(req.params.id)) { res.status(404).json({ error: "Not found" }); return; }
+    if (!Types.ObjectId.isValid(String(req.params.id))) { res.status(404).json({ error: "Not found" }); return; }
     const ev = await Event.findOne({ _id: req.params.id, createdBy: req.user!.id }).lean() as any;
     if (!ev && req.user!.role !== "admin") { res.status(403).json({ error: "Not your event" }); return; }
     const participants = await EventParticipant.find({ eventId: req.params.id })
@@ -535,7 +535,7 @@ router.get("/owner/events/:id/applications", authenticate, requireRole("turf_own
 // GET /api/owner/events/:id/standings
 router.get("/owner/events/:id/standings", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
   try {
-    if (!Types.ObjectId.isValid(req.params.id)) { res.status(404).json({ error: "Not found" }); return; }
+    if (!Types.ObjectId.isValid(String(req.params.id))) { res.status(404).json({ error: "Not found" }); return; }
     const standings = await Standing.find({ eventId: req.params.id }).sort({ position: 1 }).lean();
     res.json(standings.map((s: any) => ({
       id: s._id.toString(), eventId: s.eventId.toString(), position: s.position,
@@ -549,7 +549,7 @@ router.get("/owner/events/:id/standings", authenticate, requireRole("turf_owner"
 // POST /api/owner/events/:id/standings — upsert a team row
 router.post("/owner/events/:id/standings", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
   try {
-    if (!Types.ObjectId.isValid(req.params.id)) { res.status(404).json({ error: "Not found" }); return; }
+    if (!Types.ObjectId.isValid(String(req.params.id))) { res.status(404).json({ error: "Not found" }); return; }
     const ev = await Event.findOne({ _id: req.params.id, createdBy: req.user!.id }).lean();
     if (!ev && req.user!.role !== "admin") { res.status(403).json({ error: "Not your event" }); return; }
     const { teamName, position, played, won, lost, drawn, points, goalsFor, goalsAgainst } = req.body;
@@ -574,7 +574,7 @@ router.post("/owner/events/:id/standings", authenticate, requireRole("turf_owner
 // DELETE /api/owner/events/:id/standings/:standingId
 router.delete("/owner/events/:id/standings/:standingId", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
   try {
-    if (!Types.ObjectId.isValid(req.params.id) || !Types.ObjectId.isValid(req.params.standingId)) {
+    if (!Types.ObjectId.isValid(String(req.params.id)) || !Types.ObjectId.isValid(String(req.params.standingId))) {
       res.status(404).json({ error: "Not found" }); return;
     }
     const ev = await Event.findOne({ _id: req.params.id, createdBy: req.user!.id }).lean();

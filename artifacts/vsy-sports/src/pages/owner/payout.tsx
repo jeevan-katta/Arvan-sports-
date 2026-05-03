@@ -6,7 +6,7 @@ import {
   History, Landmark, RefreshCw, ChevronDown, ChevronUp,
   IndianRupee, CreditCard, SlidersHorizontal, X,
   Pencil, Save, ShieldCheck, BadgeCheck, TriangleAlert,
-  Building2, Smartphone, Eye, EyeOff,
+  Building2, Smartphone, Eye, EyeOff, Banknote,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -385,6 +385,11 @@ export default function OwnerPayout() {
   const hasBank    = !!(bd.accountNumber || bd.ifscCode);
   const hasUPI     = !!bd.upiId;
   const hasAny     = hasBank || hasUPI;
+  const pendingCashBookings = payout?.pendingCashBookings ?? [];
+  const pendingCashTotal = pendingCashBookings.reduce((sum: number, booking: any) => {
+    const pending = booking.pendingCashAmount ?? Math.max(0, (booking.totalPrice || 0) - (booking.paidAmount || 0));
+    return sum + pending;
+  }, 0);
 
   const onBankSaved = (newBd: any) => {
     setEditingBank(false);
@@ -561,6 +566,12 @@ export default function OwnerPayout() {
           <p className="text-[10px] text-muted-foreground mt-0.5">
             Admin: {fmtINR(payout?.adminCommission)} ({payout?.commissionRate}%)
           </p>
+        </Card>
+        <Card className="p-4 border-none shadow-sm bg-amber-500/10">
+          <Banknote className="h-4 w-4 mb-2 text-amber-500" />
+          <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{fmtINR(pendingCashTotal)}</p>
+          <p className="text-xs text-muted-foreground mt-1">Pending Cash Bookings</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">{pendingCashBookings.length} bookings awaiting cash</p>
         </Card>
       </div>
 
