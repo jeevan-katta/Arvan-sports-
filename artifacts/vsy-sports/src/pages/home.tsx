@@ -171,20 +171,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="px-4 sm:px-6 lg:px-10 py-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-screen-2xl mx-auto">
-            {features.map((feature) => (
-              <Link key={feature.name} href={feature.href} className="flex flex-col items-center gap-2 group">
-                <div className={`${feature.color} w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform duration-200`}>
-                  <feature.icon className="h-6 w-6" />
-                </div>
-                <span className="text-xs font-semibold text-center leading-tight">{feature.name}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-
         {/* ── Featured Turfs ── */}
         {hasFeaturedTurfs && (
           <div className="py-4 bg-gradient-to-b from-primary/5 to-transparent">
