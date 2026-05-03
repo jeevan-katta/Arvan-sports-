@@ -1,5 +1,12 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 
+export interface ITurfPricing {
+  weekdayDay: number;    // Mon–Fri 6am–6pm
+  weekdayNight: number;  // Mon–Fri 6pm–6am
+  weekendDay: number;    // Sat–Sun 6am–6pm
+  weekendNight: number;  // Sat–Sun 6pm–6am
+}
+
 export interface ITimeSlot extends Document {
   _id: mongoose.Types.ObjectId;
   turfId: mongoose.Types.ObjectId;
@@ -22,6 +29,7 @@ export interface ITurf extends Document {
   name: string;
   description?: string;
   pricePerHour: number;
+  pricing?: ITurfPricing;
   images: string[];
   rating: number;
   reviewCount: number;
@@ -36,33 +44,41 @@ export interface ITurf extends Document {
   createdAt: Date;
 }
 
+const TurfPricingSchema = new Schema<ITurfPricing>({
+  weekdayDay:   { type: Number, default: 0 },
+  weekdayNight: { type: Number, default: 0 },
+  weekendDay:   { type: Number, default: 0 },
+  weekendNight: { type: Number, default: 0 },
+}, { _id: false });
+
 const TurfSchema = new Schema<ITurf>({
-  name: { type: String, required: true },
+  name:        { type: String, required: true },
   description: String,
   pricePerHour: { type: Number, required: true },
-  images: { type: [String], default: [] },
-  rating: { type: Number, default: 0 },
+  pricing:     { type: TurfPricingSchema, default: null },
+  images:      { type: [String], default: [] },
+  rating:      { type: Number, default: 0 },
   reviewCount: { type: Number, default: 0 },
-  latitude: Number,
-  longitude: Number,
-  address: String,
-  area: String,
-  amenities: { type: [String], default: [] },
-  status: { type: String, default: "pending" },
-  featured: { type: Boolean, default: false },
-  ownerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  latitude:    Number,
+  longitude:   Number,
+  address:     String,
+  area:        String,
+  amenities:   { type: [String], default: [] },
+  status:      { type: String, default: "pending" },
+  featured:    { type: Boolean, default: false },
+  ownerId:     { type: Schema.Types.ObjectId, ref: "User", required: true },
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 const TimeSlotSchema = new Schema<ITimeSlot>({
-  turfId: { type: Schema.Types.ObjectId, ref: "Turf", required: true },
+  turfId:    { type: Schema.Types.ObjectId, ref: "Turf", required: true },
   startTime: { type: String, required: true },
-  endTime: { type: String, required: true },
+  endTime:   { type: String, required: true },
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 const ReviewSchema = new Schema<IReview>({
-  turfId: { type: Schema.Types.ObjectId, ref: "Turf", required: true },
-  userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-  rating: { type: Number, required: true },
+  turfId:  { type: Schema.Types.ObjectId, ref: "Turf", required: true },
+  userId:  { type: Schema.Types.ObjectId, ref: "User", required: true },
+  rating:  { type: Number, required: true },
   comment: String,
 }, { timestamps: { createdAt: true, updatedAt: false } });
 

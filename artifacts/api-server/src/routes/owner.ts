@@ -11,6 +11,7 @@ router.get("/owner/turfs", authenticate, requireRole("turf_owner", "admin"), asy
     const turfs = await Turf.find({ ownerId: req.user!.id }).lean();
     res.json(turfs.map((t: any) => ({
       id: t._id.toString(), name: t.name, description: t.description, pricePerHour: t.pricePerHour,
+      pricing: t.pricing || null,
       images: t.images || [], rating: t.rating, reviewCount: t.reviewCount, address: t.address,
       area: t.area, latitude: t.latitude, longitude: t.longitude,
       amenities: t.amenities || [], status: t.status, featured: t.featured,
@@ -21,27 +22,30 @@ router.get("/owner/turfs", authenticate, requireRole("turf_owner", "admin"), asy
 
 router.post("/owner/turfs", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
   try {
-    const { name, description, pricePerHour, area, address, latitude, longitude, amenities } = req.body;
-    if (!name || !pricePerHour || !area) {
-      res.status(400).json({ error: "Name, price per hour, and area are required" }); return;
+    const { name, description, pricePerHour, pricing, area, address, latitude, longitude, amenities, images } = req.body;
+    if (!name || !area) {
+      res.status(400).json({ error: "Name and area are required" }); return;
     }
+    const effectivePrice = pricePerHour || (pricing ? Math.min(...Object.values(pricing as Record<string,number>).filter((v: number) => v > 0)) : 0) || 0;
     const turf = await Turf.create({
       name: name.trim(),
       description: description?.trim() || "",
-      pricePerHour: Number(pricePerHour),
+      pricePerHour: effectivePrice,
+      pricing: pricing || null,
       area: area.trim(),
       address: address?.trim() || "",
       latitude: latitude ? Number(latitude) : undefined,
       longitude: longitude ? Number(longitude) : undefined,
       amenities: amenities || [],
-      images: [],
+      images: images || [],
       status: "pending",
       featured: false,
       ownerId: req.user!.id,
     });
     res.status(201).json({
       id: turf._id.toString(), name: turf.name, description: turf.description,
-      pricePerHour: turf.pricePerHour, area: turf.area, address: turf.address,
+      pricePerHour: turf.pricePerHour, pricing: turf.pricing || null,
+      area: turf.area, address: turf.address,
       latitude: turf.latitude, longitude: turf.longitude, amenities: turf.amenities,
       images: turf.images, status: turf.status, featured: turf.featured,
       ownerId: turf.ownerId?.toString(), createdAt: (turf as any).createdAt?.toISOString(),
@@ -55,15 +59,17 @@ router.put("/owner/turfs/:id", authenticate, requireRole("turf_owner", "admin"),
     if (!existing || existing.ownerId?.toString() !== req.user!.id.toString()) {
       res.status(403).json({ error: "Not authorized to edit this turf" }); return;
     }
-    const { name, description, pricePerHour, amenities, address, area, latitude, longitude } = req.body;
+    const { name, description, pricePerHour, pricing, amenities, images, address, area, latitude, longitude } = req.body;
+    const effectivePrice = pricePerHour || (pricing ? Math.min(...Object.values(pricing as Record<string,number>).filter((v: number) => v > 0)) : 0) || 0;
     const updated = await Turf.findByIdAndUpdate(
       req.params.id,
-      { name, description, pricePerHour, amenities, address, area, latitude, longitude },
+      { name, description, pricePerHour: effectivePrice, pricing: pricing || null, amenities, images: images || [], address, area, latitude, longitude },
       { new: true }
     ).lean() as any;
     res.json({
       id: updated._id.toString(), name: updated.name, description: updated.description,
-      pricePerHour: updated.pricePerHour, area: updated.area, address: updated.address,
+      pricePerHour: updated.pricePerHour, pricing: updated.pricing || null,
+      area: updated.area, address: updated.address,
       latitude: updated.latitude, longitude: updated.longitude, amenities: updated.amenities || [],
       images: updated.images || [], status: updated.status, featured: updated.featured,
       ownerId: updated.ownerId?.toString(), createdAt: updated.createdAt?.toISOString(),
