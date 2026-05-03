@@ -130,6 +130,68 @@ router.get("/owner/bookings", authenticate, requireRole("turf_owner", "admin"), 
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to fetch bookings" }); }
 });
 
+// ── Collect Cash ────────────────────────────────────────────────────────────────
+
+router.post("/owner/bookings/:id/collect-cash", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const bookingId = req.params.id;
+    if (!Types.ObjectId.isValid(bookingId)) { res.status(404).json({ error: "Booking not found" }); return; }
+
+    const ownerTurfs = await Turf.find({ ownerId: req.user!.id }, "_id").lean();
+    const turfIds = ownerTurfs.map((t: any) => t._id.toString());
+
+    const booking = await Booking.findById(bookingId).lean() as any;
+    if (!booking) { res.status(404).json({ error: "Booking not found" }); return; }
+    if (!turfIds.includes(booking.turfId?.toString())) { res.status(403).json({ error: "Not your booking" }); return; }
+    if (booking.paymentStatus !== "partially_paid") {
+      res.status(400).json({ error: "This booking does not have a pending cash balance" }); return;
+    }
+
+    const totalPrice = booking.totalPrice || 0;
+    const paidAmount = booking.paidAmount || 0;
+    const pendingCash = totalPrice - paidAmount;
+
+    // Mark cash as collected
+    await Booking.findByIdAndUpdate(bookingId, {
+      paymentStatus: "cash_collected",
+      cashCollectedAt: new Date(),
+    });
+
+    // Calculate owner's share from advance (platform keeps commission from advance)
+    const owner = await User.findById(req.user!.id).lean() as any;
+    const commissionRate = owner?.commissionRate ?? 20;
+    const commissionAmount = Math.round(totalPrice * commissionRate / 100);
+    // Owner's advance share = advance paid - commission deducted from it (capped to 0)
+    const ownerAdvanceShare = Math.max(0, paidAmount - commissionAmount);
+
+    // Notify owner: cash collected, advance share recorded
+    await Notification.create({
+      userId: req.user!.id,
+      type: "cash_collected",
+      title: "Cash Collected",
+      message: `₹${pendingCash.toLocaleString("en-IN")} cash collected for booking on ${booking.date} (${booking.startTime}–${booking.endTime}). Your advance share of ₹${ownerAdvanceShare.toLocaleString("en-IN")} from online payment is settled.`,
+      amount: pendingCash,
+    });
+
+    // Notify user that cash was collected
+    await Notification.create({
+      userId: booking.userId?.toString(),
+      type: "cash_collected",
+      title: "Cash Payment Received",
+      message: `Your pending cash of ₹${pendingCash.toLocaleString("en-IN")} for booking on ${booking.date} has been collected by the venue. Booking fully settled.`,
+      amount: pendingCash,
+    });
+
+    res.json({
+      success: true,
+      pendingCash,
+      ownerAdvanceShare,
+      commissionAmount,
+      totalPrice,
+    });
+  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to collect cash" }); }
+});
+
 // ── Revenue ─────────────────────────────────────────────────────────────────────
 
 router.get("/owner/revenue", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
@@ -165,7 +227,7 @@ router.get("/owner/payout-status", authenticate, requireRole("turf_owner", "admi
     const turfIds = ownerTurfs.map((t: any) => t._id);
     const { month, year, turfId } = req.query;
     // Build filter — optional turf/date scoping
-    const bookingFilter: any = { paymentStatus: "paid" };
+    const bookingFilter: any = { paymentStatus: { $in: ["paid", "cash_collected"] } };
     if (turfId) {
       const validId = turfIds.find((id: any) => id.toString() === turfId);
       bookingFilter.turfId = validId ?? null;
@@ -260,12 +322,12 @@ router.get("/owner/today", authenticate, requireRole("turf_owner", "admin"), asy
         ? Booking.find({ turfId: { $in: turfIds }, date: todayStr }).sort({ startTime: 1 }).lean()
         : Promise.resolve([]),
       turfIds.length
-        ? Booking.find({ turfId: { $in: turfIds }, paymentStatus: "paid" }).lean()
+        ? Booking.find({ turfId: { $in: turfIds }, paymentStatus: { $in: ["paid", "cash_collected"] } }).lean()
         : Promise.resolve([]),
     ]);
 
-    // Today revenue (paid bookings today)
-    const todayPaid = (todayBookings as any[]).filter((b: any) => b.paymentStatus === "paid");
+    // Today revenue (paid + cash_collected bookings today)
+    const todayPaid = (todayBookings as any[]).filter((b: any) => b.paymentStatus === "paid" || b.paymentStatus === "cash_collected");
     const todayRevenue = todayPaid.reduce((s: number, b: any) => s + (b.totalPrice || 0), 0);
 
     // All-time payout calc

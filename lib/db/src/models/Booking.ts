@@ -18,6 +18,7 @@ export interface IBooking extends Document {
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   expiresAt?: Date;
+  cashCollectedAt?: Date;
   createdAt: Date;
 }
 
@@ -38,6 +39,7 @@ const BookingSchema = new Schema<IBooking>({
   razorpayOrderId: String,
   razorpayPaymentId: String,
   expiresAt: Date,
+  cashCollectedAt: Date,
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 export const Booking: Model<IBooking> = mongoose.models.Booking || mongoose.model<IBooking>("Booking", BookingSchema);

@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, User, Clock, IndianRupee, ChevronLeft, ChevronRight, PlayCircle, Hourglass, CheckCircle2, Building2 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { CalendarDays, User, Clock, IndianRupee, ChevronLeft, ChevronRight, PlayCircle, Hourglass, CheckCircle2, Building2, Banknote } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import { format, parseISO, addDays, subDays } from "date-fns";
 
 interface Turf {
@@ -24,8 +25,10 @@ interface Booking {
   startTime: string;
   endTime: string;
   totalPrice: number;
+  paidAmount?: number;
   status: string;
   paymentStatus: string;
+  paymentType?: string;
 }
 
 function timeToMinutes(t: string): number {
@@ -53,12 +56,41 @@ const SLOT_BADGE: Record<string, { label: string; cls: string; icon: any }> = {
 
 export default function OwnerBookings() {
   const token = localStorage.getItem("vsy_token") || "";
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const now = new Date();
   const todayStr = format(now, "yyyy-MM-dd");
 
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [showAll, setShowAll] = useState(false);
   const [selectedTurfId, setSelectedTurfId] = useState<string>("");
+  const [collectingId, setCollectingId] = useState<string | null>(null);
+
+  const collectCashMutation = useMutation({
+    mutationFn: async (bookingId: string) => {
+      const res = await fetch(`/api/owner/bookings/${bookingId}/collect-cash`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to collect cash");
+      }
+      return res.json();
+    },
+    onSuccess: (data, bookingId) => {
+      toast({
+        title: "Cash Collected!",
+        description: `₹${data.pendingCash?.toLocaleString("en-IN")} collected. Booking fully settled.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["owner-bookings", selectedDate, selectedTurfId] });
+      setCollectingId(null);
+    },
+    onError: (err: any) => {
+      toast({ variant: "destructive", title: "Failed", description: err.message });
+      setCollectingId(null);
+    },
+  });
 
   const isToday = selectedDate === todayStr;
 
@@ -236,10 +268,13 @@ export default function OwnerBookings() {
                       </span>
                     )}
                     <Badge
-                      variant={b.paymentStatus === "paid" ? "default" : "outline"}
+                      variant={b.paymentStatus === "paid" || b.paymentStatus === "cash_collected" ? "default" : b.paymentStatus === "partially_paid" ? "secondary" : "outline"}
                       className="text-[10px]"
                     >
-                      {b.paymentStatus === "paid" ? "Paid" : "Unpaid"}
+                      {b.paymentStatus === "paid" ? "Paid"
+                        : b.paymentStatus === "cash_collected" ? "Settled"
+                        : b.paymentStatus === "partially_paid" ? "Advance Paid"
+                        : "Unpaid"}
                     </Badge>
                   </div>
                 </div>
@@ -257,8 +292,72 @@ export default function OwnerBookings() {
                   <div className="flex items-center gap-2 font-bold text-primary">
                     <IndianRupee className="h-3.5 w-3.5" />
                     <span>₹{b.totalPrice}</span>
+                    {b.paymentStatus === "partially_paid" && b.paidAmount != null && (
+                      <span className="text-xs text-muted-foreground font-normal">
+                        (₹{b.paidAmount} advance · ₹{b.totalPrice - b.paidAmount} cash pending)
+                      </span>
+                    )}
+                    {b.paymentStatus === "cash_collected" && (
+                      <span className="text-xs text-green-600 font-normal">(fully settled)</span>
+                    )}
                   </div>
                 </div>
+
+                {/* Collect Cash button — only for partially paid confirmed bookings */}
+                {b.status === "confirmed" && b.paymentStatus === "partially_paid" && (
+                  <div className="mt-3 pt-3 border-t border-dashed border-border">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="text-xs font-bold text-amber-700">Cash Due from Customer</p>
+                        <p className="text-lg font-bold text-amber-600">
+                          ₹{b.paidAmount != null ? b.totalPrice - b.paidAmount : b.totalPrice}
+                        </p>
+                      </div>
+                      {collectingId === b.id ? (
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs"
+                            onClick={() => setCollectingId(null)}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-8 text-xs bg-amber-500 hover:bg-amber-600 text-white"
+                            onClick={() => collectCashMutation.mutate(b.id)}
+                            disabled={collectCashMutation.isPending}
+                          >
+                            {collectCashMutation.isPending ? "Marking..." : "Confirm Collected"}
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs gap-1.5 bg-amber-500 hover:bg-amber-600 text-white"
+                          onClick={() => setCollectingId(b.id)}
+                        >
+                          <Banknote className="h-3.5 w-3.5" />
+                          Collect Cash
+                        </Button>
+                      )}
+                    </div>
+                    {collectingId === b.id && (
+                      <p className="text-xs text-muted-foreground">
+                        Confirm you have received ₹{b.paidAmount != null ? b.totalPrice - b.paidAmount : b.totalPrice} cash from the customer.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Cash collected confirmation strip */}
+                {b.paymentStatus === "cash_collected" && (
+                  <div className="mt-3 pt-3 border-t border-dashed border-border flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span className="text-xs font-bold">Cash collected — fully settled</span>
+                  </div>
+                )}
               </Card>
             );
           })}

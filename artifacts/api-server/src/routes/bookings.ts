@@ -22,6 +22,9 @@ export async function cancelExpiredBookings() {
 }
 
 function bookingRes(b: any, turf?: any, user?: any) {
+  const totalPrice = b.totalPrice || 0;
+  const paidAmount = b.paidAmount ?? totalPrice;
+  const pendingCashAmount = b.paymentStatus === "partially_paid" ? totalPrice - paidAmount : 0;
   return {
     id: b._id.toString(),
     turfId: b.turfId?.toString(),
@@ -33,11 +36,13 @@ function bookingRes(b: any, turf?: any, user?: any) {
     slotId: b.slotId?.toString(),
     slotIds: (b.slotIds || []).map((id: any) => id.toString()),
     date: b.date, startTime: b.startTime, endTime: b.endTime,
-    totalPrice: b.totalPrice, paidAmount: b.paidAmount ?? b.totalPrice,
+    totalPrice, paidAmount,
+    pendingCashAmount,
     playerCount: b.playerCount, paymentType: b.paymentType || "full",
     status: b.status, paymentStatus: b.paymentStatus,
     razorpayOrderId: b.razorpayOrderId,
     expiresAt: b.expiresAt?.toISOString?.() ?? null,
+    cashCollectedAt: b.cashCollectedAt?.toISOString?.() ?? null,
     createdAt: b.createdAt?.toISOString(),
   };
 }

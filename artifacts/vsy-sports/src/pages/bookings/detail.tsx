@@ -320,23 +320,63 @@ export default function BookingDetail() {
         </Card>
 
         {/* Payment Status */}
-        <div className="bg-card rounded-xl p-4 shadow-sm border border-border">
-          <h3 className="font-bold mb-2">Payment</h3>
+        <div className="bg-card rounded-xl p-4 shadow-sm border border-border space-y-3">
+          <h3 className="font-bold mb-1">Payment</h3>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm">
                 {isConfirmed
-                  ? ((booking as any).paymentType === "advance"
-                    ? `30% paid · ₹${(booking as any).paidAmount} · Balance ₹${totalPrice - ((booking as any).paidAmount || 0)} due at venue`
-                    : `Fully paid · ₹${totalPrice}`)
+                  ? ((booking as any).paymentStatus === "cash_collected"
+                    ? `Fully settled · ₹${totalPrice}`
+                    : (booking as any).paymentType === "advance"
+                      ? `30% advance paid · ₹${(booking as any).paidAmount}`
+                      : `Fully paid · ₹${totalPrice}`)
                   : "Not paid yet"}
               </span>
             </div>
-            <Badge variant={booking.paymentStatus === "paid" ? "default" : booking.paymentStatus === "partially_paid" ? "secondary" : "outline"}>
-              {booking.paymentStatus === "paid" ? "Paid" : booking.paymentStatus === "partially_paid" ? "Advance Paid" : "Pending"}
+            <Badge variant={
+              booking.paymentStatus === "paid" ? "default"
+              : (booking.paymentStatus as string) === "cash_collected" ? "default"
+              : booking.paymentStatus === "partially_paid" ? "secondary"
+              : "outline"
+            }>
+              {booking.paymentStatus === "paid" ? "Paid"
+                : (booking.paymentStatus as string) === "cash_collected" ? "Settled"
+                : booking.paymentStatus === "partially_paid" ? "Advance Paid"
+                : "Pending"}
             </Badge>
           </div>
+
+          {/* Pending cash banner for partially paid bookings */}
+          {isConfirmed && booking.paymentStatus === "partially_paid" && (booking as any).pendingCashAmount > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-3">
+              <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center shrink-0">
+                <span className="text-amber-600 font-bold text-sm">₹</span>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-amber-800">Cash due at venue</p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  Please pay <span className="font-bold">₹{(booking as any).pendingCashAmount}</span> in cash when you arrive.
+                  Your slot is confirmed.
+                </p>
+              </div>
+              <div className="text-xl font-bold text-amber-700">
+                ₹{(booking as any).pendingCashAmount}
+              </div>
+            </div>
+          )}
+
+          {/* Cash collected confirmation */}
+          {isConfirmed && (booking.paymentStatus as string) === "cash_collected" && (
+            <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-center gap-3">
+              <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-green-800">Cash collected by venue</p>
+                <p className="text-xs text-green-700">Your booking is fully settled.</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Payment Type Selector (only when pending) */}
