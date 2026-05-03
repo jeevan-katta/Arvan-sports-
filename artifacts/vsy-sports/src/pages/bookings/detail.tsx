@@ -46,7 +46,7 @@ export default function BookingDetail() {
   const [liveMatch, setLiveMatch] = useState<any | null>(null);
   const [isAddingBall, setIsAddingBall] = useState(false);
 
-  const { data: booking, isLoading } = useGetBooking(bookingId, { query: { enabled: !!bookingId } });
+  const { data: booking, isLoading } = useGetBooking(bookingId, { query: { queryKey: getGetBookingQueryKey(bookingId), enabled: !!bookingId } });
   const secondsLeft = useCountdown((booking as any)?.expiresAt);
   const createPaymentMutation = useCreateBookingPayment();
   const verifyPaymentMutation = useVerifyBookingPayment();
@@ -54,8 +54,10 @@ export default function BookingDetail() {
   const handlePayment = async () => {
     if (!booking) return;
     try {
-      const paymentOrder = await createPaymentMutation.mutateAsync({ id: bookingId, data: { paymentType } as any });
+      const paymentOrder = await createPaymentMutation.mutateAsync({ id: bookingId as any, data: { paymentType } as any } as any);
       const orderId: string = (paymentOrder as any).orderId || "";
+      const paidAmount = Number((paymentOrder as any).paidAmount || 0);
+      const isAdvance = paymentType === "advance";
 
       // Simulated payment (no real Razorpay keys configured)
       if (orderId.startsWith("order_sim_")) {
@@ -68,7 +70,10 @@ export default function BookingDetail() {
           } as any,
         });
         queryClient.invalidateQueries({ queryKey: getGetBookingQueryKey(bookingId) });
-        toast({ title: "Payment Successful!", description: "Your slot is confirmed." });
+        toast({
+          title: "Payment Successful!",
+          description: isAdvance ? `Advance payment of ₹${paidAmount} completed. Pay the balance at the venue.` : "Your slot is confirmed.",
+        });
         return;
       }
 
@@ -78,9 +83,9 @@ export default function BookingDetail() {
         amount: (paymentOrder as any).amount,
         currency: (paymentOrder as any).currency || "INR",
         name: "Vsy Sports",
-        description: paymentType === "advance"
-          ? `30% Advance for Booking #${bookingId} (₹${(paymentOrder as any).paidAmount})`
-          : `Full Payment for Booking #${bookingId}`,
+        description: isAdvance
+          ? `30% Advance for Booking #${bookingId} (₹${paidAmount})`
+          : `Full Payment for Booking #${bookingId} (₹${paidAmount || totalPrice})`,
         order_id: orderId,
         prefill: { name: user?.name || "", email: user?.email || "" },
         theme: { color: "#16a34a" },
@@ -95,7 +100,10 @@ export default function BookingDetail() {
               }
             });
             queryClient.invalidateQueries({ queryKey: getGetBookingQueryKey(bookingId) });
-            toast({ title: "Payment Successful!", description: "Your slot is confirmed." });
+            toast({
+              title: "Payment Successful!",
+              description: isAdvance ? `Advance payment of ₹${paidAmount} completed. Pay the balance at the venue.` : "Your slot is confirmed.",
+            });
           } catch (err: any) {
             toast({ variant: "destructive", title: "Verification Failed", description: err.message });
           }
@@ -337,19 +345,19 @@ export default function BookingDetail() {
             </div>
             <Badge variant={
               booking.paymentStatus === "paid" ? "default"
-              : (booking.paymentStatus as string) === "cash_collected" ? "default"
-              : booking.paymentStatus === "partially_paid" ? "secondary"
+              : (booking.paymentStatus as any) === "cash_collected" ? "default"
+              : (booking.paymentStatus as any) === "partially_paid" ? "secondary"
               : "outline"
             }>
               {booking.paymentStatus === "paid" ? "Paid"
-                : (booking.paymentStatus as string) === "cash_collected" ? "Settled"
-                : booking.paymentStatus === "partially_paid" ? "Advance Paid"
+                : (booking.paymentStatus as any) === "cash_collected" ? "Settled"
+                : (booking.paymentStatus as any) === "partially_paid" ? "Advance Paid"
                 : "Pending"}
             </Badge>
           </div>
 
           {/* Pending cash banner for partially paid bookings */}
-          {isConfirmed && booking.paymentStatus === "partially_paid" && (booking as any).pendingCashAmount > 0 && (
+          {isConfirmed && (booking.paymentStatus as any) === "partially_paid" && (booking as any).pendingCashAmount > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-3">
               <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center shrink-0">
                 <span className="text-amber-600 font-bold text-sm">₹</span>
