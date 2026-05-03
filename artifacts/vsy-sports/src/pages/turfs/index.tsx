@@ -34,7 +34,7 @@ export default function Turfs() {
       <Header title="Venues" showLocation={false} />
 
       <div className="p-4 bg-background sticky top-14 z-30 border-b border-border space-y-2">
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -105,8 +105,8 @@ export default function Turfs() {
         ) : (
           turfs?.map(turf => (
             <Link key={turf.id} href={`/turfs/${turf.id}`} className="block group">
-              <Card className="border-none shadow-sm overflow-hidden flex flex-row h-36">
-                <div className="w-1/3 relative bg-muted">
+              <Card className="border-none shadow-sm overflow-hidden flex flex-col sm:flex-row min-h-40">
+                <div className="sm:w-1/3 relative bg-muted h-40 sm:h-auto">
                   {turf.images?.[0] ? (
                     <img src={turf.images[0]} alt={turf.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   ) : (
@@ -120,7 +120,7 @@ export default function Turfs() {
                     </div>
                   )}
                 </div>
-                <CardContent className="w-2/3 p-3 flex flex-col justify-between">
+                <CardContent className="sm:w-2/3 p-3 flex flex-col justify-between">
                   <div>
                     <div className="flex justify-between items-start mb-1">
                       <h4 className="font-bold line-clamp-1">{turf.name}</h4>

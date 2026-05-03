@@ -25,7 +25,7 @@ export function OwnerLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-muted/30 flex justify-center">
-      <div className="w-full max-w-md bg-background min-h-screen flex flex-col shadow-2xl">
+      <div className="w-full max-w-md md:max-w-3xl lg:max-w-6xl bg-background min-h-screen flex flex-col shadow-2xl">
 
         {/* Top bar */}
         <header className="sticky top-0 z-40 bg-card border-b border-border">

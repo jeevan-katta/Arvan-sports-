@@ -80,10 +80,11 @@ router.post("/turfs", authenticate, requireRole("turf_owner", "admin"), async (r
 
 router.get("/turfs/:id", async (req: Request, res: Response) => {
   try {
-    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Turf not found" }); return; }
-    const turf = await Turf.findById(req.params.id).populate("ownerId", "name").lean() as any;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    if (!isValidId(id)) { res.status(404).json({ error: "Turf not found" }); return; }
+    const turf = await Turf.findById(id).populate("ownerId", "name").lean() as any;
     if (!turf) { res.status(404).json({ error: "Turf not found" }); return; }
-    const reviews = await Review.find({ turfId: req.params.id }).populate("userId", "name avatar").lean();
+    const reviews = await Review.find({ turfId: id }).populate("userId", "name avatar").lean();
     res.json({
       ...turfRes(turf, turf.ownerId?.name),
       reviews: reviews.map((r: any) => ({
@@ -97,8 +98,9 @@ router.get("/turfs/:id", async (req: Request, res: Response) => {
 
 router.put("/turfs/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Turf not found" }); return; }
-    const turf = await Turf.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    if (!isValidId(id)) { res.status(404).json({ error: "Turf not found" }); return; }
+    const turf = await Turf.findByIdAndUpdate(id, req.body, { new: true });
     if (!turf) { res.status(404).json({ error: "Turf not found" }); return; }
     res.json(turfRes(turf));
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to update turf" }); }
@@ -106,24 +108,26 @@ router.put("/turfs/:id", authenticate, async (req: AuthRequest, res: Response) =
 
 router.delete("/turfs/:id", authenticate, requireRole("admin", "turf_owner"), async (req: AuthRequest, res: Response) => {
   try {
-    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Turf not found" }); return; }
-    await Turf.findByIdAndDelete(req.params.id);
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    if (!isValidId(id)) { res.status(404).json({ error: "Turf not found" }); return; }
+    await Turf.findByIdAndDelete(id);
     res.json({ success: true });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to delete turf" }); }
 });
 
 router.get("/turfs/:id/slots", async (req: Request, res: Response) => {
   try {
-    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Turf not found" }); return; }
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    if (!isValidId(id)) { res.status(404).json({ error: "Turf not found" }); return; }
     const { date } = req.query as { date?: string };
-    const turf = await Turf.findById(req.params.id).lean() as any;
+    const turf = await Turf.findById(id).lean() as any;
     if (!turf) { res.status(404).json({ error: "Turf not found" }); return; }
 
     // Auto-seed 24 hourly slots if fewer exist
-    const slots = await ensureDailySlots(req.params.id);
+    const slots = await ensureDailySlots(id);
 
     const now = new Date();
-    const bookedDocs = date ? await Booking.find({ turfId: req.params.id, date }).lean() : [];
+    const bookedDocs = date ? await Booking.find({ turfId: id, date }).lean() : [];
 
     // Confirmed bookings → isBooked. Pending not-yet-expired bookings → isReserved.
     const bookedIds = new Set<string>();
@@ -158,19 +162,21 @@ router.get("/turfs/:id/slots", async (req: Request, res: Response) => {
 
 router.post("/turfs/:id/slots", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
   try {
-    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Turf not found" }); return; }
-    const slot = await TimeSlot.create({ turfId: req.params.id, startTime: req.body.startTime, endTime: req.body.endTime });
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    if (!isValidId(id)) { res.status(404).json({ error: "Turf not found" }); return; }
+    const slot = await TimeSlot.create({ turfId: id, startTime: req.body.startTime, endTime: req.body.endTime });
     res.status(201).json({ id: slot._id.toString(), turfId: slot.turfId?.toString(), startTime: slot.startTime, endTime: slot.endTime, date: "", isBooked: false, isReserved: false });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to create slot" }); }
 });
 
 router.post("/turfs/:id/review", authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Turf not found" }); return; }
-    const review = await Review.create({ turfId: req.params.id, userId: req.user!.id, rating: req.body.rating, comment: req.body.comment });
-    const allReviews = await Review.find({ turfId: req.params.id });
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    if (!isValidId(id)) { res.status(404).json({ error: "Turf not found" }); return; }
+    const review = await Review.create({ turfId: id, userId: req.user!.id, rating: req.body.rating, comment: req.body.comment });
+    const allReviews = await Review.find({ turfId: id });
     const avg = allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length;
-    await Turf.findByIdAndUpdate(req.params.id, { rating: Math.round(avg * 10) / 10, reviewCount: allReviews.length });
+    await Turf.findByIdAndUpdate(id, { rating: Math.round(avg * 10) / 10, reviewCount: allReviews.length });
     res.status(201).json({ id: review._id.toString(), rating: review.rating, comment: review.comment, createdAt: review.createdAt?.toISOString() });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to submit review" }); }
 });

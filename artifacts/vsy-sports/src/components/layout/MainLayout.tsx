@@ -9,7 +9,7 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps) {
   return (
     <div className="min-h-screen bg-background flex justify-center">
-      <div className="w-full max-w-md bg-background min-h-screen pb-16 relative shadow-2xl">
+      <div className="w-full max-w-md md:max-w-3xl lg:max-w-6xl bg-background min-h-screen pb-16 relative shadow-2xl">
         {children}
         <BottomNav />
         <PushPrompt />

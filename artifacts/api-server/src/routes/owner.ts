@@ -56,14 +56,15 @@ router.post("/owner/turfs", authenticate, requireRole("turf_owner", "admin"), as
 
 router.put("/owner/turfs/:id", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
   try {
-    const existing = await Turf.findById(req.params.id).lean() as any;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const existing = await Turf.findById(id).lean() as any;
     if (!existing || existing.ownerId?.toString() !== req.user!.id.toString()) {
       res.status(403).json({ error: "Not authorized to edit this turf" }); return;
     }
     const { name, description, pricePerHour, pricing, amenities, images, address, area, latitude, longitude } = req.body;
     const effectivePrice = pricePerHour || (pricing ? Math.min(...Object.values(pricing as Record<string,number>).filter((v: number) => v > 0)) : 0) || 0;
     const updated = await Turf.findByIdAndUpdate(
-      req.params.id,
+      id,
       { name, description, pricePerHour: effectivePrice, pricing: pricing || null, amenities, images: images || [], address, area, latitude, longitude },
       { new: true }
     ).lean() as any;
@@ -80,14 +81,15 @@ router.put("/owner/turfs/:id", authenticate, requireRole("turf_owner", "admin"),
 
 router.delete("/owner/turfs/:id", authenticate, requireRole("turf_owner", "admin"), async (req: AuthRequest, res: Response) => {
   try {
-    const existing = await Turf.findById(req.params.id).lean() as any;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const existing = await Turf.findById(id).lean() as any;
     if (!existing || existing.ownerId?.toString() !== req.user!.id.toString()) {
       res.status(403).json({ error: "Not authorized to delete this turf" }); return;
     }
     if (existing.status === "approved") {
       res.status(400).json({ error: "Cannot delete an approved turf. Contact admin." }); return;
     }
-    await Turf.findByIdAndDelete(req.params.id);
+    await Turf.findByIdAndDelete(id);
     res.json({ success: true });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to delete turf" }); }
 });

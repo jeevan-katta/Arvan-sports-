@@ -71,14 +71,14 @@ export default function Events() {
                 
                 {featuredEvents.map(event => (
                   <Link key={event.id} href={`/events/${event.id}`} className="block group">
-                    <Card className="border-none shadow-md overflow-hidden relative">
-                      <div className="h-48 bg-secondary/80 relative">
+                      <Card className="border-none shadow-md overflow-hidden relative">
+                      <div className="h-48 sm:h-56 bg-secondary/80 relative">
                         {event.image ? (
                           <img src={event.image} alt={event.title} className="w-full h-full object-cover mix-blend-overlay opacity-50" />
                         ) : (
                           <div className="absolute inset-0 bg-gradient-to-tr from-secondary to-primary/30" />
                         )}
-                        <div className="absolute top-3 left-3 flex gap-1.5">
+                        <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
                           <div className="bg-primary text-primary-foreground px-2 py-1 rounded text-xs font-bold uppercase">
                             {event.status}
                           </div>
@@ -102,7 +102,7 @@ export default function Events() {
                           </div>
                         </div>
                       </div>
-                      <CardContent className="p-4 bg-card grid grid-cols-3 divide-x border-t border-border">
+                      <CardContent className="p-4 bg-card grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x border-t border-border">
                         <div className="flex flex-col items-center justify-center px-2">
                           <span className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Date</span>
                           <span className="text-sm font-bold">{format(parseISO(event.date), "MMM dd")}</span>
