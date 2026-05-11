@@ -7,18 +7,18 @@ import { Turf } from "@workspace/db";
 
 const router = Router();
 
-router.get("/live-scores", (_req: Request, res: Response) => {
-  res.json(getAllMatches());
+router.get("/live-scores", async (_req: Request, res: Response) => {
+  res.json(await getAllMatches());
 });
 
-router.get("/live-scores/mine", authenticate, (req: AuthRequest, res: Response) => {
-  const match = getMatchByUser(req.user!.id);
+router.get("/live-scores/mine", authenticate, async (req: AuthRequest, res: Response) => {
+  const match = await getMatchByUser(req.user!.id);
   if (!match) { res.status(404).json({ error: "No active match" }); return; }
   res.json(match);
 });
 
-router.get("/live-scores/:id", (req: Request, res: Response) => {
-  const match = getMatch(String(req.params.id));
+router.get("/live-scores/:id", async (req: Request, res: Response) => {
+  const match = await getMatch(String(req.params.id));
   if (!match) { res.status(404).json({ error: "Match not found" }); return; }
   res.json(match);
 });
@@ -69,21 +69,21 @@ router.post("/live-scores", authenticate, async (req: AuthRequest, res: Response
   }
 });
 
-router.put("/live-scores/:id", authenticate, (req: AuthRequest, res: Response) => {
-  const updated = updateMatch(String(req.params.id), req.body);
+router.put("/live-scores/:id", authenticate, async (req: AuthRequest, res: Response) => {
+  const updated = await updateMatch(String(req.params.id), req.body);
   if (!updated) { res.status(404).json({ error: "Match not found" }); return; }
   res.json(updated);
 });
 
 // Set/update team rosters
-router.put("/live-scores/:id/players", authenticate, (req: AuthRequest, res: Response) => {
-  const match = getMatch(String(req.params.id));
+router.put("/live-scores/:id/players", authenticate, async (req: AuthRequest, res: Response) => {
+  const match = await getMatch(String(req.params.id));
   if (!match) { res.status(404).json({ error: "Match not found" }); return; }
   if (match.createdBy !== req.user!.id && req.user!.role !== "admin") {
     res.status(403).json({ error: "Not your match" }); return;
   }
   const { teamAPlayers, teamBPlayers } = req.body;
-  const updated = updateMatch(String(req.params.id), {
+  const updated = await updateMatch(String(req.params.id), {
     ...(teamAPlayers !== undefined && { teamAPlayers }),
     ...(teamBPlayers !== undefined && { teamBPlayers }),
   });
@@ -91,8 +91,8 @@ router.put("/live-scores/:id/players", authenticate, (req: AuthRequest, res: Res
 });
 
 // Set current striker / non-striker / bowler
-router.put("/live-scores/:id/current", authenticate, (req: AuthRequest, res: Response) => {
-  const match = getMatch(String(req.params.id));
+router.put("/live-scores/:id/current", authenticate, async (req: AuthRequest, res: Response) => {
+  const match = await getMatch(String(req.params.id));
   if (!match) { res.status(404).json({ error: "Match not found" }); return; }
   if (match.createdBy !== req.user!.id && req.user!.role !== "admin") {
     res.status(403).json({ error: "Not your match" }); return;
@@ -103,7 +103,7 @@ router.put("/live-scores/:id/current", authenticate, (req: AuthRequest, res: Res
   if (currentBowler && !bowlers.find(b => b.name === currentBowler)) {
     bowlers = [...bowlers, { name: currentBowler, legalBalls: 0, runs: 0, wickets: 0 }];
   }
-  const updated = updateMatch(String(req.params.id), {
+  const updated = await updateMatch(String(req.params.id), {
     ...(striker !== undefined && { striker }),
     ...(nonStriker !== undefined && { nonStriker }),
     ...(currentBowler !== undefined && { currentBowler, bowlers }),
@@ -111,10 +111,10 @@ router.put("/live-scores/:id/current", authenticate, (req: AuthRequest, res: Res
   res.json(updated);
 });
 
-router.post("/live-scores/:id/ball", authenticate, (req: AuthRequest, res: Response) => {
+router.post("/live-scores/:id/ball", authenticate, async (req: AuthRequest, res: Response) => {
   const { result, team } = req.body;
   if (!result) { res.status(400).json({ error: "result required (0/1/2/3/4/6/W/NB/WD)" }); return; }
-  const updated = addBall(String(req.params.id), String(result), team);
+  const updated = await addBall(String(req.params.id), String(result), team);
   if (!updated) { res.status(404).json({ error: "Match not found" }); return; }
   res.json(updated);
 });

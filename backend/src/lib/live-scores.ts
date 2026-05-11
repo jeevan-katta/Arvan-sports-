@@ -81,16 +81,108 @@ export function broadcast(event: object) {
   });
 }
 
-export function getAllMatches(): LiveMatch[] {
-  return Array.from(liveMatches.values());
+export async function getAllMatches(): Promise<LiveMatch[]> {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const records = await Match.find({ startedAt: { $gt: sevenDaysAgo }, status: "live" }).lean();
+  return records.map(r => ({
+    id: r.matchId,
+    turfId: r.turfId || "",
+    turfName: r.turfName || "",
+    teamA: r.teamA || "",
+    teamB: r.teamB || "",
+    scoreA: r.scoreA,
+    scoreB: r.scoreB,
+    wicketsA: r.wicketsA,
+    wicketsB: r.wicketsB,
+    overs: r.overs || "0.0",
+    battingTeam: (r.battingTeam as "A" | "B") || "A",
+    balls: (r.balls || []) as Ball[],
+    maxOvers: r.maxOvers,
+    status: (r.status as "live") || "live",
+    startedAt: r.startedAt?.toISOString() || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    createdBy: r.createdBy,
+    teamAPlayers: (r.teamAPlayers || []) as Player[],
+    teamBPlayers: (r.teamBPlayers || []) as Player[],
+    bowlers: (r.bowlers || []) as Bowler[],
+    striker: r.striker,
+    nonStriker: r.nonStriker,
+    currentBowler: r.currentBowler,
+    bookingId: r.bookingId,
+    lat: r.lat,
+    lng: r.lng,
+  }));
 }
 
-export function getMatch(id: string): LiveMatch | undefined {
-  return liveMatches.get(id);
+export async function getMatch(id: string): Promise<LiveMatch | undefined> {
+  const match = liveMatches.get(id);
+  if (match) return match;
+  
+  const r = await Match.findOne({ matchId: id }).lean();
+  if (!r) return undefined;
+
+  return {
+    id: r.matchId,
+    turfId: r.turfId || "",
+    turfName: r.turfName || "",
+    teamA: r.teamA || "",
+    teamB: r.teamB || "",
+    scoreA: r.scoreA,
+    scoreB: r.scoreB,
+    wicketsA: r.wicketsA,
+    wicketsB: r.wicketsB,
+    overs: r.overs || "0.0",
+    battingTeam: (r.battingTeam as "A" | "B") || "A",
+    balls: (r.balls || []) as Ball[],
+    maxOvers: r.maxOvers,
+    status: (r.status as "live") || "live",
+    startedAt: r.startedAt?.toISOString() || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    createdBy: r.createdBy,
+    teamAPlayers: (r.teamAPlayers || []) as Player[],
+    teamBPlayers: (r.teamBPlayers || []) as Player[],
+    bowlers: (r.bowlers || []) as Bowler[],
+    striker: r.striker,
+    nonStriker: r.nonStriker,
+    currentBowler: r.currentBowler,
+    bookingId: r.bookingId,
+    lat: r.lat,
+    lng: r.lng,
+  };
 }
 
-export function getMatchByUser(userId: string): LiveMatch | undefined {
-  return Array.from(liveMatches.values()).find(m => m.createdBy === userId && m.status === "live");
+export async function getMatchByUser(userId: string): Promise<LiveMatch | undefined> {
+  const r = await Match.findOne({ createdBy: userId, status: "live" }).lean();
+  if (!r) return undefined;
+  
+  return {
+    id: r.matchId,
+    turfId: r.turfId || "",
+    turfName: r.turfName || "",
+    teamA: r.teamA || "",
+    teamB: r.teamB || "",
+    scoreA: r.scoreA,
+    scoreB: r.scoreB,
+    wicketsA: r.wicketsA,
+    wicketsB: r.wicketsB,
+    overs: r.overs || "0.0",
+    battingTeam: (r.battingTeam as "A" | "B") || "A",
+    balls: (r.balls || []) as Ball[],
+    maxOvers: r.maxOvers,
+    status: (r.status as "live") || "live",
+    startedAt: r.startedAt?.toISOString() || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    createdBy: r.createdBy,
+    teamAPlayers: (r.teamAPlayers || []) as Player[],
+    teamBPlayers: (r.teamBPlayers || []) as Player[],
+    bowlers: (r.bowlers || []) as Bowler[],
+    striker: r.striker,
+    nonStriker: r.nonStriker,
+    currentBowler: r.currentBowler,
+    bookingId: r.bookingId,
+    lat: r.lat,
+    lng: r.lng,
+  };
 }
 
 async function persistMatch(match: LiveMatch) {
@@ -209,13 +301,13 @@ export async function createMatch(data: Omit<LiveMatch, "id" | "startedAt" | "up
   return match;
 }
 
-export function updateMatch(id: string, updates: Partial<Omit<LiveMatch, "id" | "startedAt">>): LiveMatch | null {
-  const match = liveMatches.get(id);
+export async function updateMatch(id: string, updates: Partial<Omit<LiveMatch, "id" | "startedAt">>): Promise<LiveMatch | null> {
+  const match = await getMatch(id);
   if (!match) return null;
   const updated: LiveMatch = { ...match, ...updates, updatedAt: new Date().toISOString() };
   liveMatches.set(id, updated);
   broadcast({ type: "score_update", match: updated });
-  persistMatch(updated);
+  await persistMatch(updated);
   return updated;
 }
 
@@ -248,8 +340,8 @@ function updateBowlerStats(bowlers: Bowler[], name: string, result: string): Bow
   });
 }
 
-export function addBall(id: string, result: string, team?: "A" | "B"): LiveMatch | null {
-  const match = liveMatches.get(id);
+export async function addBall(id: string, result: string, team?: "A" | "B"): Promise<LiveMatch | null> {
+  const match = await getMatch(id);
   if (!match) return null;
 
   const battingTeam = team || match.battingTeam;
@@ -340,7 +432,7 @@ export function addBall(id: string, result: string, team?: "A" | "B"): LiveMatch
   };
   liveMatches.set(id, updated);
   broadcast({ type: "score_update", match: updated });
-  persistMatch(updated);
+  await persistMatch(updated);
   return updated;
 }
 

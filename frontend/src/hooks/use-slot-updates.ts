@@ -22,14 +22,29 @@ export function useSlotUpdates(
   const onUpdateRef = useRef(onUpdate);
   onUpdateRef.current = onUpdate;
 
+  const fetchSlots = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/turfs/${turfId}/slots?date=${date}`);
+      if (res.ok) {
+        const slots = await res.json();
+        // Extract the IDs of slots that are booked or reserved
+        const bookedSlotIds = slots.filter((s: any) => s.isBooked).map((s: any) => s.id);
+        onUpdateRef.current(bookedSlotIds);
+      }
+    } catch (err) {
+      console.error("Failed to poll slots:", err);
+    }
+  }, [turfId, date]);
+
   const connect = useCallback(() => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) return;
+    
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(`${proto}//${window.location.host}/api/ws`);
     wsRef.current = ws;
 
     ws.onclose = () => {
-      reconnectRef.current = setTimeout(connect, 4000);
+      reconnectRef.current = setTimeout(connect, 10000);
     };
     ws.onerror = () => ws.close();
     ws.onmessage = (e) => {
@@ -49,4 +64,15 @@ export function useSlotUpdates(
       wsRef.current?.close();
     };
   }, [connect]);
+
+  // Polling Fallback
+  useEffect(() => {
+    const pollInterval = setInterval(() => {
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        fetchSlots();
+      }
+    }, 10000); // Poll every 10s for slots
+
+    return () => clearInterval(pollInterval);
+  }, [fetchSlots]);
 }

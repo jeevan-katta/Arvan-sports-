@@ -85,17 +85,43 @@ export function useLiveScores() {
     }
   }, []);
 
+  const fetchMatches = useCallback(async () => {
+    try {
+      const res = await fetch("/api/live-scores");
+      if (res.ok) {
+        const data = await res.json();
+        setMatches(data);
+        // If we were disconnected, mark as "connected" via polling
+        setConnected(true);
+      }
+    } catch (err) {
+      console.error("Failed to poll matches:", err);
+    }
+  }, []);
+
   const connect = useCallback(() => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
+    // Skip if already trying to connect
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) return;
+
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(`${proto}//${window.location.host}/api/ws`);
     wsRef.current = ws;
-    ws.onopen = () => setConnected(true);
+
+    ws.onopen = () => {
+      setConnected(true);
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+    };
+
     ws.onclose = () => {
       setConnected(false);
-      reconnectTimer.current = setTimeout(connect, 3000);
+      // Attempt reconnect every 10s for WS
+      reconnectTimer.current = setTimeout(connect, 10000);
     };
-    ws.onerror = () => ws.close();
+
+    ws.onerror = () => {
+      ws.close();
+    };
+
     ws.onmessage = (e) => {
       try {
         const msg: WsMessage = JSON.parse(e.data);
@@ -115,13 +141,7 @@ export function useLiveScores() {
     };
   }, [addNotification]);
 
-  // Request browser notification permission on mount
-  useEffect(() => {
-    if (typeof Notification !== "undefined" && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
-
+  // WebSocket Connection Effect
   useEffect(() => {
     connect();
     return () => {
@@ -129,6 +149,22 @@ export function useLiveScores() {
       wsRef.current?.close();
     };
   }, [connect]);
+
+  // Polling Fallback Effect (runs if not connected via WS)
+  useEffect(() => {
+    let pollInterval: ReturnType<typeof setInterval>;
+
+    if (!connected) {
+      // Initial fetch
+      fetchMatches();
+      // Start polling every 5 seconds
+      pollInterval = setInterval(fetchMatches, 5000);
+    }
+
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [connected, fetchMatches]);
 
   const clearNotifications = useCallback(() => setNotifications([]), []);
 
