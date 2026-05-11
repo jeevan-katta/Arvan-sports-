@@ -7,7 +7,7 @@ export async function connectDB() {
   const uri = process.env.MONGODB_URI;
   if (!uri) throw new Error("MONGODB_URI must be set");
   await mongoose.connect(uri, {
-    dbName: "vsysports",
+    dbName: "arvansports",
     serverSelectionTimeoutMS: 20000,
     connectTimeoutMS: 20000,
     retryWrites: true,

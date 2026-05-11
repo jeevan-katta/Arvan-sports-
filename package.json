@@ -1,16 +1,22 @@
 {
-  "name": "workspace",
-  "version": "0.0.0",
+  "name": "arvan-sports",
+  "version": "1.0.0",
   "license": "MIT",
   "scripts": {
-    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
-    "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "dev:backend": "pnpm --filter @workspace/backend run dev",
+    "dev:frontend": "pnpm --filter @workspace/frontend run dev",
+    "dev": "concurrently --kill-others-on-fail --prefix-colors \"bgBlue.bold,bgGreen.bold\" --names \"BACKEND,FRONTEND\" \"pnpm run dev:backend\" \"npx wait-on http://127.0.0.1:5000 && pnpm run dev:frontend\"",
+    "kill-ports": "npx kill-port 5000 5173 5174",
+    "dev:fresh": "npm run kill-ports & npm run dev",
+    "build": "pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./frontend\" --filter \"./backend\" --filter \"./scripts\" --if-present run typecheck",
+    "seed": "pnpm --filter scripts run seed"
   },
   "private": true,
   "devDependencies": {
-    "typescript": "~5.9.2",
-    "prettier": "^3.8.1"
+    "concurrently": "^9.2.1",
+    "prettier": "^3.8.1",
+    "typescript": "~5.9.2"
   }
 }

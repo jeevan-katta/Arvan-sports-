@@ -6,20 +6,20 @@ async function seed() {
   console.log("Seeding database...");
 
   // Admin user
-  let admin = await User.findOne({ email: "admin@vsysports.com" });
+  let admin = await User.findOne({ email: "admin@arvansports.com" });
   if (!admin) {
     const hash = await bcrypt.hash("Admin@123", 10);
-    admin = await User.create({ name: "VSY Admin", email: "admin@vsysports.com", passwordHash: hash, role: "admin", phone: "+91-9000000001" });
+    admin = await User.create({ name: "Arvan Admin", email: "admin@arvansports.com", passwordHash: hash, role: "admin", phone: "+91-9000000001" });
     console.log("Created admin:", admin.email);
   } else {
     console.log("Admin user already exists");
   }
 
   // Owner user
-  let owner = await User.findOne({ email: "owner@vsysports.com" });
+  let owner = await User.findOne({ email: "owner@arvansports.com" });
   if (!owner) {
     const hash = await bcrypt.hash("Owner@123", 10);
-    owner = await User.create({ name: "Ravi Kumar", email: "owner@vsysports.com", passwordHash: hash, role: "turf_owner", phone: "+91-9000000002" });
+    owner = await User.create({ name: "Ravi Kumar", email: "owner@arvansports.com", passwordHash: hash, role: "turf_owner", phone: "+91-9000000002" });
     console.log("Created owner:", owner.email);
   } else {
     console.log("Owner user already exists");
@@ -32,7 +32,7 @@ async function seed() {
   } else {
     const turfsData = [
       {
-        name: "VSY Box Cricket Ground",
+        name: "Arvan Box Cricket Ground",
         description: "Premium box cricket ground with professional-grade pitch, floodlights, and all amenities. Perfect for corporate and casual matches.",
         pricePerHour: 800,
         images: ["https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=800&q=80", "https://images.unsplash.com/photo-1531415074968-036ba1b575da?w=800&q=80"],
@@ -112,7 +112,7 @@ async function seed() {
     console.log("Events already seeded, skipping...");
   } else {
     const eventsData = [
-      { title: "VSY Summer Cup 2025", description: "The biggest box cricket tournament of the season! Teams of 8 compete for the grand prize.", date: "2025-06-15", time: "09:00", venue: "VSY Box Cricket Ground, Gachibowli", area: "Gachibowli", image: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=800&q=80", prize: "₹50,000", entryFee: 2000, maxParticipants: 32, currentParticipants: 18, featured: true, status: "upcoming" },
+      { title: "Arvan Summer Cup 2025", description: "The biggest box cricket tournament of the season! Teams of 8 compete for the grand prize.", date: "2025-06-15", time: "09:00", venue: "Arvan Box Cricket Ground, Gachibowli", area: "Gachibowli", image: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=800&q=80", prize: "₹50,000", entryFee: 2000, maxParticipants: 32, currentParticipants: 18, featured: true, status: "upcoming" },
       { title: "Box Cricket League Season 2", description: "Return of the most popular league format! 16 teams battle over 4 weekends.", date: "2025-06-22", time: "08:00", venue: "Champions Arena, Madhapur", area: "Madhapur", image: "https://images.unsplash.com/photo-1531415074968-036ba1b575da?w=800&q=80", prize: "₹75,000", entryFee: 3500, maxParticipants: 64, currentParticipants: 42, featured: true, status: "upcoming" },
       { title: "Corporate Cricket Carnival", description: "Bond with your team at our corporate cricket event! Trophies, medals, and catering included.", date: "2025-07-05", time: "10:00", venue: "Premier Cricket Zone, Kondapur", area: "Kondapur", image: "https://images.unsplash.com/photo-1624880357913-a8539238245b?w=800&q=80", prize: "₹25,000", entryFee: 1500, maxParticipants: 48, currentParticipants: 28, featured: false, status: "upcoming" },
       { title: "Hyderabad Open Championship", description: "The prestigious annual open championship. Open to all skill levels.", date: "2025-07-20", time: "07:00", venue: "SportZone, HITEC City", area: "HITEC City", image: "https://images.unsplash.com/photo-1489944440615-453fc2b6a9a9?w=800&q=80", prize: "₹1,00,000", entryFee: 4000, maxParticipants: 128, currentParticipants: 56, featured: true, status: "upcoming" },
@@ -149,8 +149,8 @@ async function seed() {
   }
 
   console.log("\nSeeding complete!");
-  console.log("  Admin:  admin@vsysports.com / Admin@123");
-  console.log("  Owner:  owner@vsysports.com / Owner@123");
+  console.log("  Admin:  admin@arvansports.com / Admin@123");
+  console.log("  Owner:  owner@arvansports.com / Owner@123");
   process.exit(0);
 }
 

@@ -39,6 +39,9 @@ export interface IMatch extends Document {
   striker?: string;
   nonStriker?: string;
   currentBowler?: string;
+  bookingId?: string;
+  lat?: number;
+  lng?: number;
   startedAt: Date;
   expireAt: Date;
 }
@@ -68,6 +71,9 @@ const MatchSchema = new Schema<IMatch>({
   striker: String,
   nonStriker: String,
   currentBowler: String,
+  bookingId: String,
+  lat: Number,
+  lng: Number,
   startedAt: { type: Date, default: Date.now },
   expireAt: { type: Date, default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
 });

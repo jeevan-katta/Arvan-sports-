@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Arvan sports"
+version = "1.0.0"
+id = "artifacts/vsy-sports"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24083
+
+[services.development]
+run = "pnpm --filter @workspace/vsy-sports run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/vsy-sports", "run", "build" ]
+publicDir = "artifacts/vsy-sports/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24083"
+BASE_PATH = "/"
