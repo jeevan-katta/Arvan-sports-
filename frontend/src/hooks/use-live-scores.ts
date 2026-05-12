@@ -90,7 +90,9 @@ export function useLiveScores() {
       const res = await fetch("/api/live-scores");
       if (res.ok) {
         const data = await res.json();
-        setMatches(data);
+        if (Array.isArray(data)) {
+          setMatches(data);
+        }
         // If we were disconnected, mark as "connected" via polling
         setConnected(true);
       }
@@ -126,8 +128,10 @@ export function useLiveScores() {
       try {
         const msg: WsMessage = JSON.parse(e.data);
         if (msg.type === "init") {
-          setMatches(msg.matches);
-        } else if (msg.type === "match_created") {
+          if (Array.isArray(msg.matches)) {
+            setMatches(msg.matches);
+          }
+ else if (msg.type === "match_created") {
           setMatches((prev) => [...prev, msg.match]);
           addNotification({ type: "match_live", message: `🔴 Match going live: ${msg.match.teamA} vs ${msg.match.teamB}` });
         } else if (msg.type === "score_update") {

@@ -5,8 +5,9 @@ import { Activity, Wifi, WifiOff } from "lucide-react";
 
 export function LiveScoresWidget() {
   const { matches, connected } = useLiveScores();
+  const matchesArray = Array.isArray(matches) ? matches : [];
 
-  const liveMatches = matches.filter(m => m.status === "live");
+  const liveMatches = matchesArray.filter(m => m.status === "live");
 
   if (liveMatches.length === 0) return null;
 

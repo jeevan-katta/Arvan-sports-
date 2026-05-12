@@ -44,7 +44,10 @@ export default function Home() {
   const hasFeaturedEvents = featuredEvents && featuredEvents.length > 0;
   const searchQuery = search.trim().toLowerCase();
   const allSearchResults = useMemo(() => {
-    const turfMatches = (displayTurfs ?? []).filter((turf: any) => {
+    const turfsArray = Array.isArray(displayTurfs) ? displayTurfs : [];
+    const eventsArray = Array.isArray(featuredEvents) ? featuredEvents : [];
+
+    const turfMatches = turfsArray.filter((turf: any) => {
       if (!searchQuery) return true;
       const haystack = [
         turf.name,
@@ -65,7 +68,7 @@ export default function Home() {
       return haystack.includes(searchQuery);
     });
 
-    const eventMatches = (featuredEvents ?? []).filter((event: any) => {
+    const eventMatches = eventsArray.filter((event: any) => {
       if (!searchQuery) return true;
       const typeLabel = event.type === "tournament" ? "tournament event" : "event";
       const haystack = [
@@ -101,7 +104,7 @@ export default function Home() {
     const shopMatch = searchQuery.includes("shop") || searchQuery.includes("store") || searchQuery.includes("product");
     const combinedMatches = searchQuery
       ? [...turfMatches, ...eventMatches]
-      : [...(displayTurfs ?? []), ...(featuredEvents ?? [])];
+      : [...turfsArray, ...eventsArray];
     return { turfMatches, eventMatches, shopMatch, searchIsEventLike, searchIsTurfLike, combinedMatches };
   }, [displayTurfs, featuredEvents, searchQuery]);
 
@@ -184,7 +187,7 @@ export default function Home() {
               </Link>
             </div>
             <div className="grid grid-flow-col auto-cols-[minmax(240px,1fr)] gap-4 px-4 sm:px-6 lg:px-10 pb-2 overflow-x-auto snap-x hide-scrollbar w-full max-w-screen-2xl mx-auto lg:grid-flow-row lg:auto-cols-auto lg:grid-cols-2 xl:grid-cols-3">
-              {featuredTurfs.map(turf => (
+              {Array.isArray(featuredTurfs) && featuredTurfs.map(turf => (
                 <Link key={turf.id} href={`/turfs/${turf.id}`} className="snap-center">
                   <Card className="border border-primary/20 shadow-sm shadow-primary/10 overflow-hidden h-full">
                     <div className="relative h-32 bg-muted">
@@ -338,7 +341,7 @@ export default function Home() {
               </Link>
             </div>
             <div className="px-4 sm:px-6 lg:px-10 space-y-3 w-full max-w-screen-2xl mx-auto">
-              {featuredEvents.slice(0, 3).map(event => (
+              {Array.isArray(featuredEvents) && featuredEvents.slice(0, 3).map(event => (
                 <Link key={event.id} href={`/events/${event.id}`} className="block">
                   <Card className="border-none shadow-sm overflow-hidden">
                     {/* Cover photo if available */}
