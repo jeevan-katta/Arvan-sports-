@@ -17,7 +17,7 @@ const CATEGORIES = ["All", "Bats", "Balls", "Helmets", "Gloves", "Pads", "Bags",
 export default function Shop() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
-  const [addingId, setAddingId] = useState<number | null>(null);
+  const [addingId, setAddingId] = useState<string | null>(null);
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
@@ -28,15 +28,15 @@ export default function Shop() {
     category: category !== "All" ? category : undefined
   });
 
-  const handleQuickAdd = async (e: React.MouseEvent, productId: number, productName: string) => {
+  const handleQuickAdd = async (e: React.MouseEvent, productId: string, productName: string) => {
     e.preventDefault();
     e.stopPropagation();
     if (!isAuthenticated) {
       toast({ title: "Login required", description: "Please login to add items to cart." });
       return;
     }
-    setAddingId(productId);
-    addToCartMutation.mutate({ data: { productId, quantity: 1 } }, {
+    setAddingId(String(productId));
+    addToCartMutation.mutate({ data: { productId: String(productId), quantity: 1 } }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
         toast({ title: "Added to cart!", description: `${productName} added.` });
@@ -154,10 +154,10 @@ export default function Shop() {
                         <Button
                           size="sm"
                           className="w-full h-8 text-xs font-bold rounded-lg"
-                          disabled={addingId === product.id || product.stock === 0}
+                          disabled={addingId === product.id || (product.stock ?? 0) === 0}
                           onClick={(e) => handleQuickAdd(e, product.id, product.name)}
                         >
-                          {product.stock === 0 ? (
+                          {(product.stock ?? 0) === 0 ? (
                             "Out of Stock"
                           ) : addingId === product.id ? (
                             "Adding..."

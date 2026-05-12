@@ -217,8 +217,8 @@ export default function TurfDetail() {
 
   const dateStr = format(selectedDate, "yyyy-MM-dd");
 
-  const { data: turf, isLoading: isLoadingTurf } = useGetTurf(turfId, { query: { enabled: !!turfId } });
-  const { data: slots, isLoading: isLoadingSlots } = useGetTurfSlots(turfId, { date: dateStr }, { query: { enabled: !!turfId } });
+  const { data: turf, isLoading: isLoadingTurf } = useGetTurf(turfId, { query: { enabled: !!turfId } as any });
+  const { data: slots, isLoading: isLoadingSlots } = useGetTurfSlots(turfId, { date: dateStr }, { query: { enabled: !!turfId } as any });
   const createBooking = useCreateBooking();
 
   useSlotUpdates(turfId, dateStr, (updatedSlotIds) => {

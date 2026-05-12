@@ -3,7 +3,7 @@ import { Types } from "mongoose";
 import { Event, EventParticipant, Standing } from "@workspace/db";
 import { authenticate, requireRole, AuthRequest } from "../middlewares/auth";
 
-const isValidId = (id: string) => Types.ObjectId.isValid(id);
+const isValidId = (id: any) => typeof id === "string" && Types.ObjectId.isValid(id);
 
 const router = Router();
 

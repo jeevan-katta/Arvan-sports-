@@ -20,7 +20,7 @@ export default function ProductDetail() {
   const [activeImage, setActiveImage] = useState(0);
 
   const { data: product, isLoading } = useGetProduct(productId, {
-    query: { enabled: !!productId }
+    query: { enabled: !!productId } as any
   });
 
   const addToCartMutation = useAddToCart();
@@ -32,7 +32,7 @@ export default function ProductDetail() {
     }
 
     addToCartMutation.mutate({
-      data: { productId, quantity }
+      data: { productId: String(productId), quantity }
     }, {
       onSuccess: () => {
         toast({ title: "Added to cart", description: `${product?.name} was added to your cart.` });

@@ -19,7 +19,7 @@ export default function Cart() {
   const removeMutation = useRemoveFromCart();
 
   const handleRemove = (productId: number) => {
-    removeMutation.mutate({ id: productId }, {
+    removeMutation.mutate({ productId: String(productId) } as any, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
         toast({ description: "Item removed from cart" });
@@ -104,7 +104,7 @@ export default function Cart() {
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0 -mt-0.5 -mr-1"
-                        onClick={() => handleRemove(item.productId)}
+                        onClick={() => handleRemove(Number(item.productId))}
                         disabled={removeMutation.isPending}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -123,20 +123,20 @@ export default function Cart() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 rounded-none hover:bg-muted"
-                          disabled={updatingId === item.productId}
-                          onClick={() => handleUpdateQty(item.productId, item.quantity - 1)}
+                          disabled={updatingId === Number(item.productId)}
+                          onClick={() => handleUpdateQty(Number(item.productId), Number(item.quantity) - 1)}
                         >
                           <Minus className="h-3.5 w-3.5" />
                         </Button>
                         <span className="w-8 text-center text-sm font-bold">
-                          {updatingId === item.productId ? "…" : item.quantity}
+                          {updatingId === Number(item.productId) ? "…" : item.quantity}
                         </span>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 rounded-none hover:bg-muted"
-                          disabled={updatingId === item.productId}
-                          onClick={() => handleUpdateQty(item.productId, item.quantity + 1)}
+                          disabled={updatingId === Number(item.productId)}
+                          onClick={() => handleUpdateQty(Number(item.productId), Number(item.quantity) + 1)}
                         >
                           <Plus className="h-3.5 w-3.5" />
                         </Button>

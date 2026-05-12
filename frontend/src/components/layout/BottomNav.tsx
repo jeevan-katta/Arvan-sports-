@@ -11,7 +11,7 @@ export function BottomNav() {
   const { data: cart } = useGetCart({
     query: {
       enabled: isAuthenticated
-    }
+    } as any
   });
 
   const navItems = [

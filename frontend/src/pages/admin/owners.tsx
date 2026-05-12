@@ -277,7 +277,7 @@ export default function AdminOwners() {
                 <div className="flex items-center gap-3 p-4 cursor-pointer" onClick={() => setExpanded(isOpen ? null : owner.id)}>
                   {/* Avatar */}
                   <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-primary/30 to-violet-600/15 flex items-center justify-center font-black text-primary flex-shrink-0">
-                    {owner.name?.slice(0, 2).toUpperCase()}
+                    {(owner.name || "OW").slice(0, 2).toUpperCase()}
                   </div>
 
                   {/* Info */}
@@ -442,11 +442,11 @@ export default function AdminOwners() {
                         </div>
                         <div className="mt-3 pt-3 border-t border-white/[0.05]">
                           <p className="text-[10px] font-black text-white/25 uppercase mb-2">Turfs ({owner.turfCount})</p>
-                          {owner.turfs?.length === 0 ? (
+                          {(owner.turfs ?? []).length === 0 ? (
                             <p className="text-sm text-white/20">No turfs yet</p>
                           ) : (
                             <div className="space-y-1.5">
-                              {owner.turfs?.slice(0, 4).map((t: any) => (
+                              {(owner.turfs?.slice(0, 4) ?? []).map((t: any) => (
                                 <div key={t.id} className="flex items-center justify-between gap-2">
                                   <span className="text-sm text-white/55 truncate">{t.name}</span>
                                   <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0",
@@ -455,7 +455,7 @@ export default function AdminOwners() {
                                   </span>
                                 </div>
                               ))}
-                              {owner.turfs?.length > 4 && <p className="text-[11px] text-white/20">+{owner.turfs.length - 4} more</p>}
+                              {(owner.turfs ?? []).length > 4 && <p className="text-[11px] text-white/20">+{owner.turfs.length - 4} more</p>}
                             </div>
                           )}
                         </div>
@@ -479,7 +479,7 @@ export default function AdminOwners() {
                             )}
                             {owner.bankDetails.accountNumber && (
                               <div className="flex gap-2"><span className="text-white/20 text-xs w-14 flex-shrink-0">Account</span>
-                                <span className="text-white/60 font-mono">{"●".repeat(Math.max(0, owner.bankDetails.accountNumber.length - 4))}{owner.bankDetails.accountNumber.slice(-4)}</span>
+                                <span className="text-white/60 font-mono">{"●".repeat(Math.max(0, (owner.bankDetails.accountNumber || "").length - 4))}{(owner.bankDetails.accountNumber || "").slice(-4)}</span>
                               </div>
                             )}
                             {owner.bankDetails.ifscCode && (

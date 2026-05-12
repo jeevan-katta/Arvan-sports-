@@ -5,7 +5,7 @@ import { authenticate, requireRole, AuthRequest } from "../middlewares/auth";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 
-const isValidId = (id: string) => Types.ObjectId.isValid(id);
+const isValidId = (id: any) => typeof id === "string" && Types.ObjectId.isValid(id);
 
 const router = Router();
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || "rzp_test_dummy_key";

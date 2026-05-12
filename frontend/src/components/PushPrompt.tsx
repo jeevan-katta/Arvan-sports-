@@ -20,6 +20,7 @@ export function PushPrompt() {
       const t = setTimeout(() => setDismissed(false), 1500);
       return () => clearTimeout(t);
     }
+    return undefined;
   }, [token]);
 
   const dismiss = () => {

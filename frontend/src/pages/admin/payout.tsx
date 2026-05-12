@@ -448,7 +448,7 @@ export default function AdminPayout() {
                         {/* Owner name */}
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary/25 to-violet-600/15 flex items-center justify-center text-primary text-[11px] font-black flex-shrink-0">
-                            {o.name?.slice(0, 2).toUpperCase()}
+                            {(o.name || "OW").slice(0, 2).toUpperCase()}
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-bold text-white truncate">{o.name}</p>
@@ -518,7 +518,7 @@ export default function AdminPayout() {
                       onClick={() => openPanel(o)}>
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/25 to-violet-600/15 flex items-center justify-center text-primary font-black flex-shrink-0">
-                          {o.name?.slice(0, 2).toUpperCase()}
+                          {(o.name || "OW").slice(0, 2).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -564,7 +564,7 @@ export default function AdminPayout() {
           {/* Panel header */}
           <div className="flex items-center gap-3 px-5 py-4 border-b border-white/[0.07] flex-shrink-0">
             <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/25 to-violet-600/15 flex items-center justify-center text-primary font-black flex-shrink-0">
-              {panel.name?.slice(0, 2).toUpperCase()}
+              {(panel.name || "OW").slice(0, 2).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-black text-sm text-white truncate">{panel.name}</p>
@@ -649,7 +649,7 @@ export default function AdminPayout() {
                     <div className="space-y-2 text-sm">
                       {panel.bankDetails.bankName && <div className="flex gap-2"><CreditCard className="h-3.5 w-3.5 text-white/25 mt-0.5 flex-shrink-0"/><span className="text-white/60">{panel.bankDetails.bankName}</span></div>}
                       {panel.bankDetails.accountName && <div className="flex justify-between"><span className="text-white/30 text-xs">Holder</span><span className="text-white/60">{panel.bankDetails.accountName}</span></div>}
-                      {panel.bankDetails.accountNumber && <div className="flex justify-between"><span className="text-white/30 text-xs">Account</span><span className="text-white/60 font-mono">{"●".repeat(Math.max(0,panel.bankDetails.accountNumber.length-4))}{panel.bankDetails.accountNumber.slice(-4)}</span></div>}
+                      {panel.bankDetails.accountNumber && <div className="flex justify-between"><span className="text-white/30 text-xs">Account</span><span className="text-white/60 font-mono">{"●".repeat(Math.max(0, (panel.bankDetails.accountNumber || "").length - 4))}{(panel.bankDetails.accountNumber || "").slice(-4)}</span></div>}
                       {panel.bankDetails.ifscCode && <div className="flex justify-between"><span className="text-white/30 text-xs">IFSC</span><span className="text-white/60 font-mono">{panel.bankDetails.ifscCode}</span></div>}
                       {panel.bankDetails.upiId && <div className="flex justify-between"><span className="text-white/30 text-xs">UPI</span><span className="text-white/60">{panel.bankDetails.upiId}</span></div>}
                     </div>

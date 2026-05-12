@@ -171,7 +171,7 @@ export default function Bookings() {
                         </div>
                         <div className="flex items-center text-sm bg-white/60 dark:bg-background/40 rounded-lg px-3 py-1.5 mb-3">
                           <Clock className="h-3.5 w-3.5 mr-2 text-primary" />
-                          <span className="font-semibold">{to12hr(b.startTime)} – {to12hr(b.endTime)}</span>
+                          <span className="font-semibold">{to12hr(b.startTime ?? "")} – {to12hr(b.endTime ?? "")}</span>
                         </div>
                         <div className="flex items-center justify-between pt-2 border-t border-green-200/50 dark:border-green-900/50">
                           <span className="font-bold text-primary text-lg">₹{b.totalPrice}</span>

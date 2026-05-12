@@ -4,7 +4,7 @@ import { Post, PostJoin, Message, User } from "@workspace/db";
 import { authenticate, AuthRequest } from "../middlewares/auth";
 import { broadcast } from "../lib/live-scores";
 
-const isValidId = (id: string) => Types.ObjectId.isValid(id);
+const isValidId = (id: any) => typeof id === "string" && Types.ObjectId.isValid(id);
 
 const router = Router();
 
@@ -73,10 +73,10 @@ router.post("/community/posts", authenticate, async (req: AuthRequest, res: Resp
 
 router.get("/community/posts/:id", async (req: Request, res: Response) => {
   try {
-    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Post not found" }); return; }
+    if (!isValidId(String(req.params.id))) { res.status(404).json({ error: "Post not found" }); return; }
     const post = await Post.findById(req.params.id).populate("userId", "name avatar").lean() as any;
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
-    const joins = await PostJoin.find({ postId: req.params.id }).lean();
+    const joins = await PostJoin.find({ postId: String(req.params.id) }).lean();
     const joinedUserIds = joins.map((j: any) => j.userId);
     const joinedUserDocs = await User.find({ _id: { $in: joinedUserIds } }).select("name avatar phone email").lean() as any[];
     const msgs = await Message.find({ postId: req.params.id }).sort({ createdAt: 1 }).populate("userId", "name avatar").lean();
@@ -106,50 +106,50 @@ router.get("/community/posts/:id", async (req: Request, res: Response) => {
 
 router.delete("/community/posts/:id", authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Post not found" }); return; }
-    await Post.findByIdAndDelete(req.params.id);
+    if (!isValidId(String(req.params.id))) { res.status(404).json({ error: "Post not found" }); return; }
+    await Post.findByIdAndDelete(String(req.params.id));
     res.json({ success: true });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to delete post" }); }
 });
 
 router.post("/community/posts/:id/join", authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Post not found" }); return; }
-    const post = await Post.findById(req.params.id).lean() as any;
+    if (!isValidId(String(req.params.id))) { res.status(404).json({ error: "Post not found" }); return; }
+    const post = await Post.findById(String(req.params.id)).lean() as any;
     if (!post) { res.status(404).json({ error: "Post not found" }); return; }
 
     const { teamName } = req.body;
     const isTeamMode = post.lookingFor === "team";
 
     // Check if already joined
-    const existing = await PostJoin.findOne({ postId: req.params.id, userId: req.user!.id });
+    const existing = await PostJoin.findOne({ postId: String(req.params.id), userId: req.user!.id });
     if (existing) {
       res.status(400).json({ error: "Already joined" }); return;
     }
 
     // Check if already has a team join
-    const existingTeamJoin = isTeamMode && await PostJoin.findOne({ postId: req.params.id, isTeamJoin: true });
+    const existingTeamJoin = isTeamMode && await PostJoin.findOne({ postId: String(req.params.id), isTeamJoin: true });
     if (existingTeamJoin) {
       res.status(400).json({ error: "An opponent team has already joined" }); return;
     }
 
     await PostJoin.create({
-      postId: req.params.id,
+      postId: String(req.params.id),
       userId: req.user!.id,
       isTeamJoin: isTeamMode,
       teamName: isTeamMode ? (teamName || "Opponent Team") : undefined,
     });
 
     // Mark post as filled if team join or all spots taken
-    const allJoins = await PostJoin.find({ postId: req.params.id }).lean();
+    const allJoins = await PostJoin.find({ postId: String(req.params.id) }).lean();
     const hasTeamJoin = allJoins.some((j: any) => j.isTeamJoin);
     const effectiveCount = hasTeamJoin ? post.playersNeeded : allJoins.length;
     if (effectiveCount >= post.playersNeeded) {
-      await Post.findByIdAndUpdate(req.params.id, { status: "filled" });
+      await Post.findByIdAndUpdate(String(req.params.id), { status: "filled" });
     }
 
-    const updatedPost = await Post.findById(req.params.id).populate("userId", "name avatar").lean() as any;
-    const updatedJoins = await PostJoin.find({ postId: req.params.id }).lean();
+    const updatedPost = await Post.findById(String(req.params.id)).populate("userId", "name avatar").lean() as any;
+    const updatedJoins = await PostJoin.find({ postId: String(req.params.id) }).lean();
     const updatedTeamJoin = updatedJoins.some((j: any) => j.isTeamJoin);
     const updatedCount = updatedTeamJoin ? post.playersNeeded : updatedJoins.length;
     res.json(postRes(updatedPost, updatedPost?.userId, updatedCount));
@@ -158,7 +158,7 @@ router.post("/community/posts/:id/join", authenticate, async (req: AuthRequest, 
 
 router.get("/community/posts/:id/messages", async (req: Request, res: Response) => {
   try {
-    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Post not found" }); return; }
+    if (!isValidId(String(req.params.id))) { res.status(404).json({ error: "Post not found" }); return; }
     const msgs = await Message.find({ postId: req.params.id }).sort({ createdAt: 1 }).populate("userId", "name avatar").lean();
     res.json(msgs.map((m: any) => ({
       id: m._id.toString(), postId: m.postId?.toString(),
@@ -174,7 +174,7 @@ router.post("/community/posts/:id/messages", authenticate, async (req: AuthReque
     if (!isValidId(req.params.id)) { res.status(404).json({ error: "Post not found" }); return; }
     const { content } = req.body;
     if (!content) { res.status(400).json({ error: "content required" }); return; }
-    const msg = await Message.create({ postId: req.params.id, userId: req.user!.id, content });
+    const msg = await Message.create({ postId: String(req.params.id), userId: req.user!.id, content });
     const user = await User.findById(req.user!.id).lean() as any;
     res.status(201).json({
       id: msg._id.toString(), postId: msg.postId?.toString(),

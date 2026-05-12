@@ -4,7 +4,7 @@ import { Announcement, Notification, User } from "@workspace/db";
 import { authenticate, requireRole, AuthRequest } from "../middlewares/auth";
 
 const router = Router();
-const isValidId = (id: string) => Types.ObjectId.isValid(id);
+const isValidId = (id: any) => typeof id === "string" && Types.ObjectId.isValid(id);
 
 function announcementRes(a: any) {
   return {
@@ -93,10 +93,10 @@ router.post("/announcements", authenticate, requireRole("admin", "turf_owner"), 
 // PUT /api/announcements/:id/pin — admin only (toggle)
 router.put("/announcements/:id/pin", authenticate, requireRole("admin"), async (req: AuthRequest, res: Response) => {
   try {
-    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Not found" }); return; }
+    if (!isValidId(String(req.params.id))) { res.status(404).json({ error: "Not found" }); return; }
     const ann = await Announcement.findById(req.params.id).lean() as any;
     if (!ann) { res.status(404).json({ error: "Not found" }); return; }
-    const updated = await Announcement.findByIdAndUpdate(req.params.id, { pinned: !ann.pinned }, { new: true }).lean();
+    const updated = await Announcement.findByIdAndUpdate(String(req.params.id), { pinned: !ann.pinned }, { new: true }).lean();
     res.json(announcementRes(updated));
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to pin" }); }
 });
@@ -104,13 +104,13 @@ router.put("/announcements/:id/pin", authenticate, requireRole("admin"), async (
 // DELETE /api/announcements/:id — admin or own creator
 router.delete("/announcements/:id", authenticate, requireRole("admin", "turf_owner"), async (req: AuthRequest, res: Response) => {
   try {
-    if (!isValidId(req.params.id)) { res.status(404).json({ error: "Not found" }); return; }
+    if (!isValidId(String(req.params.id))) { res.status(404).json({ error: "Not found" }); return; }
     const ann = await Announcement.findById(req.params.id).lean() as any;
     if (!ann) { res.status(404).json({ error: "Not found" }); return; }
     if (req.user!.role !== "admin" && ann.createdBy?.toString() !== req.user!.id.toString()) {
       res.status(403).json({ error: "Forbidden" }); return;
     }
-    await Announcement.findByIdAndDelete(req.params.id);
+    await Announcement.findByIdAndDelete(String(req.params.id));
     res.json({ success: true });
   } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed to delete" }); }
 });

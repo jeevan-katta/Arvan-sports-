@@ -17,7 +17,7 @@ export default function Turfs() {
 
   const { data: turfs, isLoading } = useListTurfs({
     search: search || undefined,
-    ...(sortByDistance && lat && lng ? { lat: String(lat), lng: String(lng) } : {}),
+    ...(sortByDistance && lat && lng ? { lat: Number(lat), lng: Number(lng) } : {}),
   });
 
   function handleDistanceToggle() {
@@ -138,7 +138,7 @@ export default function Turfs() {
                       )}
                     </p>
                     <div className="flex gap-1 flex-wrap">
-                      {turf.amenities?.slice(0, 2).map((amenity, i) => (
+                      {(turf.amenities?.slice(0, 2) ?? []).map((amenity, i) => (
                         <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
                           {amenity}
                         </Badge>
