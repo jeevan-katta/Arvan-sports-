@@ -15,18 +15,18 @@ export default function Home() {
   const { lat, lng, city, loading: locLoading, error: locError, request: requestLocation } = useGeolocation(true);
 
   const { data: nearbyTurfs, isLoading: loadingNearby } = useListTurfs(
-    lat && lng ? { lat: String(lat), lng: String(lng) } : {},
-    { query: { enabled: !!(lat && lng) } }
+    lat && lng ? { lat: Number(lat), lng: Number(lng) } : {},
+    { query: { enabled: !!(lat && lng) } as any }
   );
 
   const { data: topTurfs, isLoading: loadingTop } = useListTurfs(
     {},
-    { query: { enabled: !(lat && lng) } }
+    { query: { enabled: !(lat && lng) } as any }
   );
 
   const { data: featuredTurfs } = useListTurfs(
     { featured: "true" } as any,
-    { query: { enabled: true } }
+    { query: { enabled: true } as any }
   );
 
   const { data: featuredEvents } = useListEvents({ featured: true });
@@ -386,7 +386,7 @@ export default function Home() {
                               {new Date(event.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                               {event.venue && <><span className="mx-1">·</span><MapPin className="h-3 w-3" /><span className="truncate max-w-[80px]">{event.venue}</span></>}
                             </div>
-                            {event.entryFee > 0 && (
+                            {(event.entryFee ?? 0) > 0 && (
                               <span className="text-xs font-bold text-primary flex items-center gap-0.5">
                                 <IndianRupee className="h-3 w-3" />{event.entryFee} entry
                               </span>

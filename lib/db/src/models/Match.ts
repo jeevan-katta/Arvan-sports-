@@ -62,7 +62,17 @@ const MatchSchema = new Schema<IMatch>({
   wicketsB: { type: Number, default: 0 },
   overs: String,
   battingTeam: { type: String, default: "A" },
-  balls: { type: Array, default: [] },
+  balls: {
+    type: [{
+      result: String,
+      team: String,
+      over: Number,
+      ball: Number,
+      striker: String,
+      bowler: String
+    }],
+    default: []
+  },
   maxOvers: { type: Number, default: 8 },
   status: { type: String, default: "live" },
   teamAPlayers: { type: [PlayerSchema], default: [] },
