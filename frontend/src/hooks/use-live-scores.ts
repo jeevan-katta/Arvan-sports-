@@ -131,7 +131,7 @@ export function useLiveScores() {
           if (Array.isArray(msg.matches)) {
             setMatches(msg.matches);
           }
- else if (msg.type === "match_created") {
+        } else if (msg.type === "match_created") {
           setMatches((prev) => [...prev, msg.match]);
           addNotification({ type: "match_live", message: `🔴 Match going live: ${msg.match.teamA} vs ${msg.match.teamB}` });
         } else if (msg.type === "score_update") {
