@@ -282,7 +282,7 @@ export default function Home() {
               [1, 2, 3].map(i => (
                 <div key={i} className="min-w-[260px] h-64 rounded-2xl bg-muted animate-pulse snap-center" />
               ))
-            ) : displayTurfs?.slice(0, 6).map(turf => (
+            ) : Array.isArray(displayTurfs) && displayTurfs.slice(0, 6).map(turf => (
               <Link key={turf.id} href={`/turfs/${turf.id}`} className="snap-center">
                 <Card className="border-none shadow-sm overflow-hidden h-full">
                   <div className="relative h-36 bg-muted">
