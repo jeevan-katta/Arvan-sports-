@@ -7,7 +7,6 @@
     "lib": ["ES2022"],
     "outDir": "../dist/api",
     "rootDir": "..",
-    "types": ["node"],
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
