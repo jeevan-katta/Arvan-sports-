@@ -8,7 +8,7 @@ export default async (req: any, res: any) => {
     await connectDB();
     // Express app(req, res) handles the response.
     // We don't necessarily need to 'return' its result, but it doesn't hurt.
-    app(req, res);
+    (app as any)(req, res);
   } catch (err) {
     console.error("Vercel Function Error:", err);
     res.status(500).json({ error: "Internal Server Error", details: String(err) });
