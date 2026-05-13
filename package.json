@@ -18,10 +18,17 @@
     "concurrently": "^9.2.1",
     "prettier": "^3.8.1",
     "typescript": "~5.9.2",
-    "@types/node": "catalog:"
+    "@types/node": "catalog:",
+    "@types/express": "^5.0.0",
+    "@types/cors": "^2.8.17"
   },
   "dependencies": {
     "@workspace/db": "workspace:*",
-    "@workspace/api-zod": "workspace:*"
+    "@workspace/api-zod": "workspace:*",
+    "express": "^5.0.0",
+    "cors": "^2.8.5",
+    "pino-http": "^10.0.0",
+    "pino": "^9.0.0",
+    "mongoose": "^8.0.0"
   }
 }
