@@ -1,5 +1,5 @@
-export * from "./generated/api.js";
-export * from "./generated/types.js";
+export * from "./generated/api";
+export * from "./generated/types";
 
 export type {
   AddToCartBody,
@@ -67,4 +67,4 @@ export type {
   User,
   UserRole,
   VerifyPaymentBody
-} from "./generated/types.js";
+} from "./generated/types";

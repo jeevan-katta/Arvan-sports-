@@ -39,9 +39,6 @@ export function useSlotUpdates(
   const connect = useCallback(() => {
     if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) return;
     
-    const isVercel = window.location.hostname.includes("vercel.app");
-    if (isVercel) return;
-
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(`${proto}//${window.location.host}/api/ws`);
     wsRef.current = ws;

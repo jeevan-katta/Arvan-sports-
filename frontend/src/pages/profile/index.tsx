@@ -38,10 +38,8 @@ export default function Profile() {
 
   const myMatch = matches.find(m => m.createdBy === user.id && m.status === "live");
 
-  const confirmedBookings = Array.isArray(bookings) ? bookings.filter(b => b.status === "confirmed") : [];
-  const totalSpent = Array.isArray(bookings) 
-    ? bookings.filter(b => b.status === "confirmed").reduce((sum, b) => sum + ((b as any).totalAmount || 0), 0) 
-    : 0;
+  const confirmedBookings = bookings?.filter(b => b.status === "confirmed") || [];
+  const totalSpent = bookings?.filter(b => b.status === "confirmed").reduce((sum, b) => sum + ((b as any).totalAmount || 0), 0) || 0;
 
   const handleSaveProfile = async () => {
     if (!editName.trim() || editName.trim().length < 2) {
