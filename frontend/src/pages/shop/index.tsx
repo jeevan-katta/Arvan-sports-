@@ -93,17 +93,17 @@ export default function Shop() {
               <div key={i} className="h-64 rounded-xl bg-muted animate-pulse" />
             ))}
           </div>
-        ) : products?.length === 0 ? (
+        ) : !Array.isArray(products) || products.length === 0 ? (
           <div className="text-center py-20">
             <ShoppingBag className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-3" />
-            <h3 className="font-bold text-lg">No products found</h3>
-            <p className="text-muted-foreground text-sm">Try a different search or category.</p>
+            <h3 className="font-bold text-lg">{!Array.isArray(products) ? "Failed to load products" : "No products found"}</h3>
+            <p className="text-muted-foreground text-sm">{!Array.isArray(products) ? "The server returned an invalid response." : "Try a different search or category."}</p>
           </div>
         ) : (
           <>
-            <p className="text-xs text-muted-foreground mb-3 font-medium">{products?.length} products</p>
+            <p className="text-xs text-muted-foreground mb-3 font-medium">{products.length} products</p>
             <div className="grid grid-cols-2 gap-3">
-              {products?.map(product => (
+              {products.map(product => (
                 <Link key={product.id} href={`/shop/${product.id}`} className="block group">
                   <Card className="border-border shadow-sm h-full overflow-hidden flex flex-col hover:border-primary/40 hover:shadow-md transition-all">
                     <div className="h-36 bg-white relative p-3 flex items-center justify-center border-b border-border/30">

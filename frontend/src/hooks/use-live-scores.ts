@@ -105,6 +105,13 @@ export function useLiveScores() {
     // Skip if already trying to connect
     if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) return;
 
+    const isVercel = window.location.hostname.includes("vercel.app");
+    if (isVercel) {
+      // Vercel doesn't support persistent WebSockets, stick to polling
+      setConnected(false);
+      return;
+    }
+
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(`${proto}//${window.location.host}/api/ws`);
     wsRef.current = ws;

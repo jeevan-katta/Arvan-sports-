@@ -96,14 +96,14 @@ export default function Turfs() {
           [1, 2, 3, 4].map(i => (
             <div key={i} className="h-32 rounded-2xl bg-muted animate-pulse" />
           ))
-        ) : turfs?.length === 0 ? (
+        ) : !Array.isArray(turfs) || turfs.length === 0 ? (
           <div className="text-center py-10">
             <MapPin className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-3" />
-            <h3 className="font-bold text-lg">No turfs found</h3>
-            <p className="text-muted-foreground text-sm">Try adjusting your search filters.</p>
+            <h3 className="font-bold text-lg">{!Array.isArray(turfs) ? "Failed to load venues" : "No turfs found"}</h3>
+            <p className="text-muted-foreground text-sm">{!Array.isArray(turfs) ? "The server returned an invalid response." : "Try adjusting your search filters."}</p>
           </div>
         ) : (
-          turfs?.map(turf => (
+          turfs.map(turf => (
             <Link key={turf.id} href={`/turfs/${turf.id}`} className="block group">
               <Card className="border-none shadow-sm overflow-hidden flex flex-col sm:flex-row min-h-40">
                 <div className="sm:w-1/3 relative bg-muted h-40 sm:h-auto">

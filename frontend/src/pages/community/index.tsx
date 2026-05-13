@@ -490,19 +490,19 @@ export default function Community() {
           <div className="p-4 space-y-3">
             {isLoading ? (
               [1, 2, 3].map(i => <div key={i} className="h-44 rounded-xl bg-muted animate-pulse" />)
-            ) : posts?.length === 0 ? (
+            ) : !Array.isArray(posts) || posts.length === 0 ? (
               <div className="text-center py-16">
                 <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                   <Users className="h-8 w-8 text-primary/50" />
                 </div>
-                <h3 className="font-bold text-base">No open matches</h3>
-                <p className="text-muted-foreground text-sm mt-1 mb-5">Be the first to post and find players!</p>
+                <h3 className="font-bold text-base">{!Array.isArray(posts) ? "Failed to load posts" : "No open matches"}</h3>
+                <p className="text-muted-foreground text-sm mt-1 mb-5">{!Array.isArray(posts) ? "The server returned an invalid response." : "Be the first to post and find players!"}</p>
                 <Button onClick={() => setIsPostDialogOpen(true)} className="gap-2 rounded-xl font-bold px-6">
                   <Plus className="h-4 w-4" /> Post a Match
                 </Button>
               </div>
             ) : (
-              posts?.map(post => {
+              posts.map(post => {
                 const p = post as any;
                 const isTeamMode = p.lookingFor === "team";
                 const spotsLeft = Math.max(0, p.playersNeeded - (p.playersJoined || 0));

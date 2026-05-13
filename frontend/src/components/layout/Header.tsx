@@ -88,7 +88,7 @@ function UserNotificationBell() {
             </div>
           </div>
           <div className="max-h-96 overflow-y-auto">
-            {!notifications.length ? (
+            {!Array.isArray(notifications) || !notifications.length ? (
               <div className="py-10 text-center">
                 <Bell className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-20" />
                 <p className="text-sm text-muted-foreground font-bold">No notifications yet</p>

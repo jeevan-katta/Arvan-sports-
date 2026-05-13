@@ -33,6 +33,8 @@ app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
 app.get("/", (_req, res) => res.send("OK"));
+app.get("/healthz", (_req, res) => res.json({ status: "ok" }));
 app.use("/api", router);
+app.use("/", router); // Fallback for Vercel if /api is stripped from req.url
 
 export default app;
