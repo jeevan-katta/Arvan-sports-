@@ -34,7 +34,7 @@ function UserNotificationBell() {
     refetchInterval: 30_000,
   });
 
-  const unread = notifications.filter(n => !n.read).length;
+  const unread = Array.isArray(notifications) ? notifications.filter(n => !n.read).length : 0;
 
   const markAll = useMutation({
     mutationFn: () => fetch("/api/user/notifications/read-all", { method: "PUT", headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
