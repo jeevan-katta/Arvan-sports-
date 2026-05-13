@@ -13,7 +13,7 @@ import uploadRouter from "./upload";
 import announcementsRouter from "./announcements";
 import pushRouter from "./push";
 
-const router: IRouter = Router();
+const router = Router();
 
 router.use(healthRouter);
 router.use(authRouter);
