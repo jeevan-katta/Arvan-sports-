@@ -1,11 +1,13 @@
-// app is required dynamically to prevent Vercel tsc from type-checking the backend
 import { connectDB } from "@workspace/db";
+import appModule from "../backend/dist/app.mjs";
 
-// For Vercel, we need to export the app as a function or the default export.
-// We also need to ensure the DB is connected.
 export default async (req, res) => {
-  await connectDB();
-  const appModule = await import("../backend/dist/app.mjs");
-  const app = appModule.default;
-  return app(req, res);
+  try {
+    await connectDB();
+    const app = appModule;
+    return app(req, res);
+  } catch (err) {
+    console.error("Vercel Function Error:", err);
+    res.status(500).json({ error: "Internal Server Error", details: String(err), stack: err.stack });
+  }
 };
