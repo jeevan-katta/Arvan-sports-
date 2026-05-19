@@ -11,7 +11,7 @@ export async function connectDB() {
     serverSelectionTimeoutMS: 20000,
     connectTimeoutMS: 20000,
     retryWrites: true,
-  });
+  } as any);
   isConnected = true;
   console.log("MongoDB connected");
 }
