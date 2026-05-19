@@ -5,6 +5,7 @@ import { connectDB } from "@workspace/db";
 // We also need to ensure the DB is connected.
 export default async (req, res) => {
   await connectDB();
-  const app = require("../backend/src/app").default;
+  const appModule = await import("../backend/dist/app.mjs");
+  const app = appModule.default;
   return app(req, res);
 };

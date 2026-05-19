@@ -8,7 +8,8 @@ export default async (req, res) => {
     await connectDB();
     // Express app(req, res) handles the response.
     // We don't necessarily need to 'return' its result, but it doesn't hurt.
-    const app = require("../backend/src/app").default;
+    const appModule = await import("../backend/dist/app.mjs");
+    const app = appModule.default;
     app(req, res);
   } catch (err) {
     console.error("Vercel Function Error:", err);
