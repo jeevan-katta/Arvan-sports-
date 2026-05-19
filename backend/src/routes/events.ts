@@ -144,11 +144,13 @@ router.post("/events/:id/join", authenticate, async (req: AuthRequest, res: Resp
     if (event.maxParticipants && event.currentParticipants >= event.maxParticipants) {
       res.status(400).json({ error: "Event is full" }); return;
     }
-    const existing = await EventParticipant.findOne({ eventId: req.params.id, userId: req.user!.id });
+    const eventId = req.params.id as string;
+    const userId = req.user!.id as string;
+    const existing = await EventParticipant.findOne({ eventId, userId });
     if (!existing) {
       await EventParticipant.create({
-        eventId: req.params.id,
-        userId: req.user!.id,
+        eventId,
+        userId,
         name: req.body.name,
         phone: req.body.phone,
         teamName: req.body.teamName,

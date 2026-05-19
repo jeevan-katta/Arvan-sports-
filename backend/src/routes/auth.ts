@@ -1,7 +1,9 @@
-import { Router, Request, Response } from "express";
+import { Router } from "express";
+import type { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { User } from "@workspace/db";
 import { authenticate, signToken, AuthRequest } from "../middlewares/auth";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -20,7 +22,8 @@ function userResponse(user: any) {
 
 router.post("/auth/register", async (req: Request, res: Response) => {
   try {
-    const { name, email, password, phone, role } = req.body;
+    const body = req.body as Record<string, string>;
+    const { name, email, password, phone, role } = body;
     if (!name || !email || !password) { res.status(400).json({ error: "name, email, password required" }); return; }
     if (!phone) { res.status(400).json({ error: "Mobile number is required" }); return; }
     const existing = await User.findOne({ email });
@@ -31,14 +34,15 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     const token = signToken({ id: user._id.toString(), role: user.role, email: user.email });
     res.status(201).json({ token, user: userResponse(user) });
   } catch (err) {
-    req.log?.error(err);
+    logger.error(err);
     res.status(500).json({ error: "Registration failed" });
   }
 });
 
 router.post("/auth/login", async (req: Request, res: Response) => {
   try {
-    const { email, phone, password } = req.body;
+    const body = req.body as Record<string, string>;
+    const { email, phone, password } = body;
     const identifier = typeof email === "string" && email.trim().length > 0 ? email.trim() : typeof phone === "string" && phone.trim().length > 0 ? phone.trim() : "";
     if (!identifier || !password) { res.status(400).json({ error: "email/phone and password required" }); return; }
     const user = await User.findOne({
@@ -51,7 +55,7 @@ router.post("/auth/login", async (req: Request, res: Response) => {
     const token = signToken({ id: user._id.toString(), role: user.role, email: user.email });
     res.json({ token, user: userResponse(user) });
   } catch (err) {
-    req.log?.error(err);
+    logger.error(err);
     res.status(500).json({ error: "Login failed" });
   }
 });
@@ -62,23 +66,24 @@ router.get("/auth/me", authenticate, async (req: AuthRequest, res: Response) => 
     if (!user) { res.status(404).json({ error: "User not found" }); return; }
     res.json(userResponse(user));
   } catch (err) {
-    req.log?.error(err);
+    logger.error(err);
     res.status(500).json({ error: "Failed to get user" });
   }
 });
 
 router.put("/auth/me", authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { name, phone, avatar } = req.body;
-    const update: any = {};
-    if (name && typeof name === "string" && name.trim().length >= 2) update.name = name.trim();
-    if (phone && typeof phone === "string") update.phone = phone.trim();
-    if (avatar && typeof avatar === "string") update.avatar = avatar.trim();
+    const body = req.body as Record<string, string>;
+    const { name, phone, avatar } = body;
+    const update: Record<string, string> = {};
+    if (name && typeof name === "string" && name.trim().length >= 2) update["name"] = name.trim();
+    if (phone && typeof phone === "string") update["phone"] = phone.trim();
+    if (avatar && typeof avatar === "string") update["avatar"] = avatar.trim();
     const user = await User.findByIdAndUpdate(req.user!.id, { $set: update }, { new: true });
     if (!user) { res.status(404).json({ error: "User not found" }); return; }
     res.json(userResponse(user));
   } catch (err) {
-    req.log?.error(err);
+    logger.error(err);
     res.status(500).json({ error: "Failed to update profile" });
   }
 });
@@ -95,21 +100,21 @@ router.get("/user/notifications", authenticate, async (req: AuthRequest, res: Re
       read: n.read, amount: n.amount, linkId: n.linkId,
       createdAt: n.createdAt?.toISOString(),
     })));
-  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed" }); }
+  } catch (err) { logger.error(err); res.status(500).json({ error: "Failed" }); }
 });
 
 router.put("/user/notifications/read-all", authenticate, async (req: AuthRequest, res: Response) => {
   try {
     await Notification.updateMany({ userId: req.user!.id, read: false }, { read: true });
     res.json({ success: true });
-  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed" }); }
+  } catch (err) { logger.error(err); res.status(500).json({ error: "Failed" }); }
 });
 
 router.put("/user/notifications/:id/read", authenticate, async (req: AuthRequest, res: Response) => {
   try {
     await Notification.findOneAndUpdate({ _id: req.params.id, userId: req.user!.id }, { read: true });
     res.json({ success: true });
-  } catch (err) { req.log?.error(err); res.status(500).json({ error: "Failed" }); }
+  } catch (err) { logger.error(err); res.status(500).json({ error: "Failed" }); }
 });
 
 export default router;

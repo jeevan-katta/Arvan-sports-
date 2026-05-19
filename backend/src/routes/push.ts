@@ -41,10 +41,11 @@ router.post("/push/subscribe", authenticate, async (req: AuthRequest, res: Respo
 router.delete("/push/unsubscribe", authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { endpoint } = req.body;
+    const userId = req.user!.id as string;
     if (endpoint) {
-      await PushSubscription.deleteOne({ endpoint, userId: req.user!.id });
+      await PushSubscription.deleteOne({ endpoint, userId } as any);
     } else {
-      await PushSubscription.deleteMany({ userId: req.user!.id });
+      await PushSubscription.deleteMany({ userId } as any);
     }
     res.json({ success: true });
   } catch (err) {
